@@ -47,7 +47,9 @@ export default function HomeScreen() {
   async function carregarEstadoInicial() {
     try {
       const oraculoSalvo = await AsyncStorage.getItem(STORAGE_ORACULO);
-      const ultimaConsultaSalva = await AsyncStorage.getItem(STORAGE_ULTIMA_CONSULTA);
+      const ultimaConsultaSalva = await AsyncStorage.getItem(
+        STORAGE_ULTIMA_CONSULTA
+      );
 
       if (oraculoSalvo) {
         setOraculoAtual(JSON.parse(oraculoSalvo));
@@ -113,7 +115,10 @@ export default function HomeScreen() {
     setModoEscolha(true);
   }
 
-  async function revelarCarta(oraculoEscolhido: Oraculo, indiceEscolhido: number) {
+  async function revelarCarta(
+    oraculoEscolhido: Oraculo,
+    indiceEscolhido: number
+  ) {
     if (animandoEscolha) return;
 
     setAnimandoEscolha(true);
@@ -183,40 +188,34 @@ export default function HomeScreen() {
         <Text style={styles.titulo}>Oráculo Diário</Text>
 
         {modoEscolha ? (
-          <>
-            
-
-            <View style={styles.cartasContainer}>
-              {opcoesOraculo.map((item, index) => (
-                <Animated.View
-                  key={item.id}
-                  style={[
-                    styles.cartaAnimadaWrapper,
-                    index === 1 && styles.cartaMeio,
-                    { opacity: opacidadeCartas[index] },
-                  ]}
+          <View style={styles.cartasContainer}>
+            {opcoesOraculo.map((item, index) => (
+              <Animated.View
+                key={item.id}
+                style={[
+                  styles.cartaAnimadaWrapper,
+                  index === 1 && styles.cartaMeio,
+                  { opacity: opacidadeCartas[index] },
+                ]}
+              >
+                <TouchableOpacity
+                  style={styles.cartaFechada}
+                  activeOpacity={0.85}
+                  disabled={animandoEscolha}
+                  onPress={() => revelarCarta(item, index)}
                 >
-                  <TouchableOpacity
-                    style={styles.cartaFechada}
-                    activeOpacity={0.85}
-                    disabled={animandoEscolha}
-                    onPress={() => revelarCarta(item, index)}
+                  <ImageBackground
+                    source={item.imagem}
+                    style={styles.cartaVerso}
+                    resizeMode="cover"
+                    imageStyle={styles.cartaFechadaImagem}
                   >
-                    <ImageBackground
-                      source={item.imagem}
-                      style={styles.cartaVerso}
-                      resizeMode="cover"
-                      imageStyle={styles.cartaFechadaImagem}
-                    >
-                      <View style={styles.cartaVersoOverlay}>
-                        
-                      </View>
-                    </ImageBackground>
-                  </TouchableOpacity>
-                </Animated.View>
-              ))}
-            </View>
-          </>
+                    <View style={styles.cartaVersoOverlay} />
+                  </ImageBackground>
+                </TouchableOpacity>
+              </Animated.View>
+            ))}
+          </View>
         ) : (
           <TouchableOpacity
             activeOpacity={0.85}
@@ -289,7 +288,10 @@ export default function HomeScreen() {
 
         <View style={styles.rowBotoes}>
           {__DEV__ && (
-            <TouchableOpacity style={styles.botaoDev} onPress={resetarCooldownDev}>
+            <TouchableOpacity
+              style={styles.botaoDev}
+              onPress={resetarCooldownDev}
+            >
               <Text style={styles.textoBotaoDev}>Reset</Text>
             </TouchableOpacity>
           )}
@@ -319,13 +321,6 @@ const styles = StyleSheet.create({
     color: '#E8C27A',
     marginBottom: 24,
     letterSpacing: 0.5,
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-  },
-  subtitulo: {
-    fontSize: 22,
-    color: '#F6E7C1',
-    marginBottom: 24,
-    textAlign: 'center',
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
   cartasContainer: {
@@ -368,7 +363,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(20, 12, 35, 0.1)',
   },
- 
   cardContainer: {
     width: 205,
     height: 340,
@@ -398,14 +392,13 @@ const styles = StyleSheet.create({
     paddingVertical: 22,
     backgroundColor: 'rgba(20, 12, 35, 0.24)',
   },
-    areaCentralTexto: {
+  areaCentralTexto: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
     paddingHorizontal: 20,
   },
-
   fraseNaCarta: {
     width: '100%',
     fontSize: 22,
@@ -481,7 +474,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
   },
-
   textoBotaoInterpretar: {
     color: '#E8D8FF',
     fontSize: 18,

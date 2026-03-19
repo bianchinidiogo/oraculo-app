@@ -1,6 +1,6 @@
 import { useFonts, PlayfairDisplay_600SemiBold } from '@expo-google-fonts/playfair-display';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -14,9 +14,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 
-const STORAGE_INTERPRETACAO_DIA = 'oraculo_interpretacao_dia';
-
-// TROQUE PELO IP DO SEU COMPUTADOR NA MESMA REDE WIFI
+const STORAGE_USER_ID = 'oraculo_user_id';
 const API_URL = 'https://oraculo-vercel.vercel.app/api';
 
 const AREAS_DA_VIDA = [
@@ -42,41 +40,33 @@ export default function InterpretacaoScreen() {
   const [areaSelecionada, setAreaSelecionada] = useState('');
   const [carregando, setCarregando] = useState(false);
   const [interpretacao, setInterpretacao] = useState('');
-  const [bloqueadoHoje, setBloqueadoHoje] = useState(false);
 
-  useEffect(() => {
-    verificarLimiteDiario();
-  }, []);
+  async function obterOuCriarUserId() {
+    const salvo = await AsyncStorage.getItem(STORAGE_USER_ID);
 
-  function obterDataLocal() {
-    const agora = new Date();
-    const ano = agora.getFullYear();
-    const mes = String(agora.getMonth() + 1).padStart(2, '0');
-    const dia = String(agora.getDate()).padStart(2, '0');
+    if (salvo) return salvo;
 
-    return `${ano}-${mes}-${dia}`;
+    const novoId = `user_${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
+
+    await AsyncStorage.setItem(STORAGE_USER_ID, novoId);
+    return novoId;
   }
 
-  async function verificarLimiteDiario() {
+  async function resetarUserIdDev() {
     try {
-      const hoje = obterDataLocal();
-      const ultimaInterpretacao = await AsyncStorage.getItem(STORAGE_INTERPRETACAO_DIA);
-      setBloqueadoHoje(ultimaInterpretacao === hoje);
-    } catch (error) {
-      console.log('Erro ao verificar interpretação diária:', error);
-    }
-  }
+      const novoId = `user_${Date.now()}_${Math.random()
+        .toString(36)
+        .slice(2, 10)}`;
 
-  async function resetarCooldownInterpretacao() {
-    try {
-      await AsyncStorage.removeItem(STORAGE_INTERPRETACAO_DIA);
-      setBloqueadoHoje(false);
+      await AsyncStorage.setItem(STORAGE_USER_ID, novoId);
       setInterpretacao('');
 
-      Alert.alert('Modo Dev', 'Cooldown da interpretação resetado com sucesso.');
+      Alert.alert('Modo Dev', 'User ID recriado com sucesso para novo teste.');
     } catch (error) {
-      console.log('Erro ao resetar cooldown da interpretação:', error);
-      Alert.alert('Erro', 'Não foi possível resetar o cooldown.');
+      console.log('Erro ao resetar userId:', error);
+      Alert.alert('Erro', 'Não foi possível resetar o userId.');
     }
   }
 
@@ -94,17 +84,10 @@ export default function InterpretacaoScreen() {
       return;
     }
 
-    if (bloqueadoHoje) {
-      Alert.alert(
-        'Limite diário',
-        'Você já fez sua interpretação de hoje. Volte amanhã.'
-      );
-      return;
-    }
-
     setCarregando(true);
 
     try {
+      const userId = await obterOuCriarUserId();
       const endpoint = `${API_URL}/interpretar`;
 
       console.log('Chamando endpoint:', endpoint);
@@ -112,7 +95,7 @@ export default function InterpretacaoScreen() {
         frase,
         area: areaSelecionada,
         cardId: id,
-        userId: 'usuario-teste-1',
+        userId,
       });
 
       const response = await fetch(endpoint, {
@@ -124,7 +107,7 @@ export default function InterpretacaoScreen() {
           frase,
           area: areaSelecionada,
           cardId: id,
-          userId: 'usuario-teste-1',
+          userId,
         }),
       });
 
@@ -137,7 +120,7 @@ export default function InterpretacaoScreen() {
         if (response.status === 429) {
           Alert.alert(
             'Limite diário',
-            data?.error || 'Você já fez sua interpretação de hoje.'
+            data?.error || 'Você já fez sua interpretação hoje.'
           );
           return;
         }
@@ -150,17 +133,12 @@ export default function InterpretacaoScreen() {
       }
 
       setInterpretacao(data.interpretacao);
-
-      const hoje = obterDataLocal();
-      await AsyncStorage.setItem(STORAGE_INTERPRETACAO_DIA, hoje);
-      setBloqueadoHoje(true);
     } catch (error: any) {
       console.log('Erro ao gerar interpretação:', error);
 
       Alert.alert(
-        'Erro de conexão',
-        error?.message ||
-          'Não foi possível conectar ao servidor. Verifique o IP da API e se o celular está na mesma rede Wi-Fi do computador.'
+        'Erro',
+        error?.message || 'Não foi possível gerar a interpretação.'
       );
     } finally {
       setCarregando(false);
@@ -239,29 +217,25 @@ export default function InterpretacaoScreen() {
           <TouchableOpacity
             style={[
               styles.botaoPrincipal,
-              (carregando || bloqueadoHoje) && styles.botaoDesativado,
+              carregando && styles.botaoDesativado,
             ]}
             onPress={gerarInterpretacao}
-            disabled={carregando || bloqueadoHoje}
+            disabled={carregando}
             activeOpacity={0.85}
           >
             <Text style={styles.textoBotaoPrincipal}>
-              {bloqueadoHoje
-                ? 'Interpretação já realizada hoje'
-                : carregando
-                ? 'Interpretando...'
-                : 'Gerar interpretação'}
+              {carregando ? 'Interpretando...' : 'Gerar interpretação'}
             </Text>
           </TouchableOpacity>
 
           {__DEV__ && (
             <TouchableOpacity
               style={styles.botaoDev}
-              onPress={resetarCooldownInterpretacao}
+              onPress={resetarUserIdDev}
               activeOpacity={0.85}
             >
               <Ionicons name="refresh" size={18} color="#1a1230" />
-              <Text style={styles.textoBotaoDev}>Resetar cooldown</Text>
+              <Text style={styles.textoBotaoDev}>Resetar userId</Text>
             </TouchableOpacity>
           )}
 
