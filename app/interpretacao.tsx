@@ -394,5 +394,6 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     color: '#F6E7C1',
     fontFamily: 'PlayfairDisplay_600SemiBold',
+    textAlign: 'left',
   },
 });
