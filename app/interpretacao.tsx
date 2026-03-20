@@ -1,4 +1,21 @@
-import { createClient } from '@supabase/supabase-js';
+import { useFonts, PlayfairDisplay_600SemiBold } from '@expo-google-fonts/playfair-display';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+  ImageBackground,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
+
+const STORAGE_USER_ID = 'oraculo_user_id';
+const API_URL = 'https://oraculo-vercel.vercel.app/api';
 
 const AREAS_DA_VIDA = [
   'Amor',
@@ -10,253 +27,373 @@ const AREAS_DA_VIDA = [
   'Propósito',
 ];
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+export default function InterpretacaoScreen() {
+  const [fontsLoaded] = useFonts({
+    PlayfairDisplay_600SemiBold,
+  });
 
-function limparTexto(texto) {
-  if (typeof texto !== 'string') return '';
+  const { frase, id } = useLocalSearchParams<{
+    frase?: string;
+    id?: string;
+  }>();
 
-  return texto
-    .replace(/\r/g, '')
-    .replace(/\u0000/g, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
+  const [areaSelecionada, setAreaSelecionada] = useState('');
+  const [carregando, setCarregando] = useState(false);
+  const [interpretacao, setInterpretacao] = useState('');
 
-function obterDataLocalISO() {
-  const partes = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date());
+  async function obterOuCriarUserId() {
+    const salvo = await AsyncStorage.getItem(STORAGE_USER_ID);
 
-  const ano = partes.find(p => p.type === 'year')?.value;
-  const mes = partes.find(p => p.type === 'month')?.value;
-  const dia = partes.find(p => p.type === 'day')?.value;
+    if (salvo) return salvo;
 
-  return `${ano}-${mes}-${dia}`;
-}
+    const novoId = `user_${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
 
-function extrairInterpretacaoGemini(data) {
-  const candidate = data?.candidates?.[0];
-  if (!candidate) return '';
-
-  console.log('CANDIDATE COMPLETO:', JSON.stringify(candidate, null, 2));
-
-  const parts = candidate?.content?.parts || [];
-  console.log('PARTS GEMINI:', JSON.stringify(parts, null, 2));
-
-  let interpretacao = parts
-    .map(part => (typeof part?.text === 'string' ? part.text : ''))
-    .join('\n')
-    .trim();
-
-  if (!interpretacao && typeof candidate?.output === 'string') {
-    interpretacao = candidate.output.trim();
+    await AsyncStorage.setItem(STORAGE_USER_ID, novoId);
+    return novoId;
   }
 
-  if (!interpretacao && typeof data?.text === 'string') {
-    interpretacao = data.text.trim();
+  async function resetarUserIdDev() {
+    try {
+      const novoId = `user_${Date.now()}_${Math.random()
+        .toString(36)
+        .slice(2, 10)}`;
+
+      await AsyncStorage.setItem(STORAGE_USER_ID, novoId);
+      setInterpretacao('');
+
+      Alert.alert('Modo Dev', 'User ID recriado com sucesso para novo teste.');
+    } catch (error) {
+      console.log('Erro ao resetar userId:', error);
+      Alert.alert('Erro', 'Não foi possível resetar o userId.');
+    }
   }
 
-  return limparTexto(interpretacao);
-}
-
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Método não permitido.' });
-  }
-
-  try {
-    const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-
-    if (!GOOGLE_API_KEY) {
-      return res.status(500).json({
-        error: 'GOOGLE_API_KEY não configurada.',
-      });
+  async function gerarInterpretacao() {
+    if (!frase) {
+      Alert.alert('Erro', 'Frase não encontrada.');
+      return;
     }
 
-    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      return res.status(500).json({
-        error: 'Credenciais do Supabase não configuradas.',
-      });
+    if (!areaSelecionada) {
+      Alert.alert(
+        'Escolha uma área',
+        'Selecione uma área da vida para interpretar.'
+      );
+      return;
     }
 
-    const { frase, area, cardId, userId } = req.body || {};
+    setCarregando(true);
 
-    console.log('BODY RECEBIDO:', req.body);
+    try {
+      const userId = await obterOuCriarUserId();
+      const endpoint = `${API_URL}/interpretar`;
 
-    if (!frase || typeof frase !== 'string' || !frase.trim()) {
-      return res.status(400).json({
-        error: 'Frase obrigatória.',
+      console.log('Chamando endpoint:', endpoint);
+      console.log('Payload:', {
+        frase,
+        area: areaSelecionada,
+        cardId: id,
+        userId,
       });
-    }
 
-    if (!area || typeof area !== 'string' || !AREAS_DA_VIDA.includes(area)) {
-      return res.status(400).json({
-        error: 'Área inválida.',
-      });
-    }
-
-    if (!userId || typeof userId !== 'string' || !userId.trim()) {
-      return res.status(400).json({
-        error: 'userId obrigatório.',
-      });
-    }
-
-    const dataRef = obterDataLocalISO();
-
-    const { data: existente, error: erroBusca } = await supabase
-      .from('interpretacoes_diarias')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('data_ref', dataRef)
-      .limit(1)
-      .maybeSingle();
-
-    if (erroBusca) {
-      console.error('ERRO BUSCA SUPABASE:', erroBusca);
-      return res.status(500).json({
-        error: 'Erro ao verificar limite diário.',
-      });
-    }
-
-    if (existente) {
-      return res.status(429).json({
-        error: 'Você já realizou sua interpretação hoje.',
-      });
-    }
-
-    const prompt = `
-You are an oracle interpreter.
-
-Write in Brazilian Portuguese.
-
-Tone:
-Warm, introspective, poetic, emotionally supportive.
-
-Constraints:
-- Do not use lists
-- Do not use titles
-- Do not explain anything
-- Do not add meta commentary
-- Do not make deterministic predictions
-- Do not mention interpretation or instructions
-- Output only the final text
-
-Length:
-Write between 90 and 120 words.
-
-Guidelines:
-Be clear and fluid.
-Avoid overly long or complex sentences.
-Focus on emotional clarity and meaning.
-Connect the oracle phrase naturally to the life area.
-Sound human, gentle, and specific rather than generic.
-
-Oracle phrase: "${frase.trim()}"
-Life area: "${area}"
-
-Write the final text now.
-`.trim();
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_API_KEY}`,
-      {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: prompt }],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.8,
-            maxOutputTokens: 220,
-            candidateCount: 1,
-            thinkingConfig: {
-              thinkingBudget: 0,
-            },
-          },
+          frase,
+          area: areaSelecionada,
+          cardId: id,
+          userId,
         }),
-      }
-    );
-
-    const data = await response.json();
-
-    console.log('STATUS GEMINI:', response.status);
-    console.log('RESPOSTA GEMINI:', JSON.stringify(data, null, 2));
-
-    if (!response.ok) {
-      console.error('ERRO GEMINI:', data);
-      return res.status(response.status).json({
-        error: data?.error?.message || 'Erro ao gerar interpretação.',
-      });
-    }
-
-    if (data?.promptFeedback?.blockReason) {
-      return res.status(422).json({
-        error: `Conteúdo bloqueado pela IA: ${data.promptFeedback.blockReason}`,
-      });
-    }
-
-    const finishReason = data?.candidates?.[0]?.finishReason;
-    const interpretacao = extrairInterpretacaoGemini(data);
-
-    console.log('FINISH REASON:', finishReason);
-    console.log('INTERPRETACAO EXTRAIDA:', interpretacao);
-    console.log('TAMANHO INTERPRETACAO:', interpretacao?.length);
-
-    if (!interpretacao) {
-      return res.status(502).json({
-        error: 'Resposta vazia da IA.',
-        finishReason: finishReason || null,
-        debug: data,
-      });
-    }
-
-    const { error: erroInsert } = await supabase
-      .from('interpretacoes_diarias')
-      .insert({
-        user_id: userId,
-        data_ref: dataRef,
-        card_id: cardId || null,
-        frase: frase.trim(),
-        area,
-        interpretacao,
       });
 
-    if (erroInsert) {
-      console.error('ERRO INSERT SUPABASE:', erroInsert);
+      const data = await response.json();
 
-      if (erroInsert.code === '23505') {
-        return res.status(429).json({
-          error: 'Você já realizou sua interpretação hoje.',
-        });
+      console.log('Status da API:', response.status);
+      console.log('Resposta da API:', data);
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          Alert.alert(
+            'Limite diário',
+            data?.error || 'Você já fez sua interpretação hoje.'
+          );
+          return;
+        }
+
+        throw new Error(data?.error || 'Erro ao interpretar');
       }
 
-      return res.status(500).json({
-        error: 'Erro ao salvar interpretação.',
-      });
+      if (!data?.interpretacao) {
+        throw new Error('A API respondeu sem interpretação.');
+      }
+
+      setInterpretacao(data.interpretacao);
+    } catch (error: any) {
+      console.log('Erro ao gerar interpretação:', error);
+
+      Alert.alert(
+        'Erro',
+        error?.message || 'Não foi possível gerar a interpretação.'
+      );
+    } finally {
+      setCarregando(false);
     }
-
-    return res.status(200).json({
-      interpretacao,
-      finishReason: finishReason || null,
-      debugLength: interpretacao.length,
-    });
-  } catch (error) {
-    console.error('ERRO INTERNO /api/interpretar:', error);
-
-    return res.status(500).json({
-      error: error?.message || 'Erro interno do servidor.',
-    });
   }
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: false,
+          animation: 'fade_from_bottom',
+          presentation: 'card',
+        }}
+      />
+
+      <ImageBackground
+        source={require('../assets/images/background.png')}
+        resizeMode="cover"
+        style={styles.background}
+      >
+        <ScrollView
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.botaoVoltar}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="arrow-back" size={22} color="#E8C27A" />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.titulo}>Interpretação</Text>
+
+          <View style={styles.cardFrase}>
+            <Text style={styles.rotulo}>Sua mensagem</Text>
+            <Text style={styles.frase}>{frase}</Text>
+          </View>
+
+          <Text style={styles.subtitulo}>Escolha uma área da vida</Text>
+
+          <View style={styles.areasContainer}>
+            {AREAS_DA_VIDA.map(area => {
+              const selecionada = areaSelecionada === area;
+
+              return (
+                <TouchableOpacity
+                  key={area}
+                  style={[
+                    styles.botaoArea,
+                    selecionada && styles.botaoAreaSelecionada,
+                  ]}
+                  onPress={() => setAreaSelecionada(area)}
+                  activeOpacity={0.85}
+                >
+                  <Text
+                    style={[
+                      styles.textoArea,
+                      selecionada && styles.textoAreaSelecionada,
+                    ]}
+                  >
+                    {area}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.botaoPrincipal,
+              carregando && styles.botaoDesativado,
+            ]}
+            onPress={gerarInterpretacao}
+            disabled={carregando}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.textoBotaoPrincipal}>
+              {carregando ? 'Interpretando...' : 'Gerar interpretação'}
+            </Text>
+          </TouchableOpacity>
+
+          {__DEV__ && (
+            <TouchableOpacity
+              style={styles.botaoDev}
+              onPress={resetarUserIdDev}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="refresh" size={18} color="#1a1230" />
+              <Text style={styles.textoBotaoDev}>Resetar userId</Text>
+            </TouchableOpacity>
+          )}
+
+          {carregando && (
+            <ActivityIndicator
+              size="large"
+              color="#E8C27A"
+              style={styles.loader}
+            />
+          )}
+
+          {!!interpretacao && (
+            <View style={styles.cardInterpretacao}>
+              <Text style={styles.rotulo}>Leitura simbólica</Text>
+              <Text style={styles.textoInterpretacao}>{interpretacao}</Text>
+            </View>
+          )}
+        </ScrollView>
+      </ImageBackground>
+    </>
+  );
 }
+
+const styles = StyleSheet.create({
+  background: {
+    flex: 1,
+  },
+  container: {
+    minHeight: '100%',
+    paddingHorizontal: 24,
+    paddingTop: 64,
+    paddingBottom: 40,
+    backgroundColor: '#1a1230dd',
+  },
+  header: {
+    width: '100%',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  botaoVoltar: {
+    width: 42,
+    height: 42,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,194,122,0.28)',
+  },
+  titulo: {
+    fontSize: 32,
+    color: '#E8C27A',
+    marginBottom: 24,
+    textAlign: 'center',
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+  cardFrase: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,194,122,0.35)',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 24,
+  },
+  rotulo: {
+    fontSize: 14,
+    color: '#C9A96B',
+    marginBottom: 10,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+  frase: {
+    fontSize: 24,
+    lineHeight: 34,
+    color: '#F6E7C1',
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+  subtitulo: {
+    fontSize: 20,
+    color: '#F6E7C1',
+    marginBottom: 14,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+  areasContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 24,
+  },
+  botaoArea: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#7B5BBE',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  botaoAreaSelecionada: {
+    backgroundColor: '#4B2B75',
+    borderColor: '#E8C27A',
+  },
+  textoArea: {
+    color: '#F6E7C1',
+    fontSize: 16,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+  textoAreaSelecionada: {
+    color: '#F1C97A',
+  },
+  botaoPrincipal: {
+    width: '100%',
+    backgroundColor: '#3C235A',
+    borderWidth: 1.5,
+    borderColor: '#D5A85E',
+    paddingVertical: 16,
+    borderRadius: 999,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  botaoDesativado: {
+    opacity: 0.55,
+  },
+  textoBotaoPrincipal: {
+    color: '#F1C97A',
+    fontSize: 18,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+  botaoDev: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#E8C27A',
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    marginBottom: 8,
+  },
+  textoBotaoDev: {
+    color: '#1a1230',
+    fontSize: 15,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+  loader: {
+    marginTop: 20,
+  },
+  cardInterpretacao: {
+    marginTop: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(232,194,122,0.35)',
+    padding: 18,
+  },
+  textoInterpretacao: {
+    fontSize: 18,
+    lineHeight: 30,
+    color: '#F6E7C1',
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    textAlign: 'left',
+  },
+});
