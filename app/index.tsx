@@ -14,9 +14,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { oraculos } from '../data/oraculos';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { supabase } from '../lib/supabase';
 
 const STORAGE_ORACULO = 'oraculo_atual';
-const STORAGE_ULTIMA_CONSULTA = 'oraculo_ultima_consulta';
+const API_URL = 'https://oraculo-vercel.vercel.app/api';
 
 type Oraculo = (typeof oraculos)[number];
 
@@ -47,37 +48,44 @@ export default function HomeScreen() {
   async function carregarEstadoInicial() {
     try {
       const oraculoSalvo = await AsyncStorage.getItem(STORAGE_ORACULO);
-      const ultimaConsultaSalva = await AsyncStorage.getItem(
-        STORAGE_ULTIMA_CONSULTA
-      );
 
       if (oraculoSalvo) {
         setOraculoAtual(JSON.parse(oraculoSalvo));
       }
 
-      const hoje = obterDataLocal();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      if (ultimaConsultaSalva === hoje) {
-        setCooldownAtivo(true);
-        setTempoRestante('disponível amanhã');
+      if (!session?.user) {
+        setCooldownAtivo(false);
+        setTempoRestante('');
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/status-diario`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setCooldownAtivo(!!data?.leituraRealizadaHoje);
+        setTempoRestante(data?.leituraRealizadaHoje ? 'disponível amanhã' : '');
       } else {
         setCooldownAtivo(false);
         setTempoRestante('');
       }
     } catch (error) {
       console.log('Erro ao carregar dados do oráculo:', error);
+      setCooldownAtivo(false);
+      setTempoRestante('');
     } finally {
       setCarregando(false);
     }
-  }
-
-  function obterDataLocal() {
-    const agora = new Date();
-    const ano = agora.getFullYear();
-    const mes = String(agora.getMonth() + 1).padStart(2, '0');
-    const dia = String(agora.getDate()).padStart(2, '0');
-
-    return `${ano}-${mes}-${dia}`;
   }
 
   function embaralharArray<T>(array: T[]) {
@@ -98,6 +106,18 @@ export default function HomeScreen() {
   }
 
   async function iniciarConsulta() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user) {
+      Alert.alert(
+        'Login necessário',
+        'Entre na sua conta para realizar sua consulta diária.'
+      );
+      return;
+    }
+
     if (cooldownAtivo) {
       Alert.alert(
         'Consulta já realizada',
@@ -121,6 +141,18 @@ export default function HomeScreen() {
   ) {
     if (animandoEscolha) return;
 
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user) {
+      Alert.alert(
+        'Login necessário',
+        'Entre na sua conta para realizar sua consulta diária.'
+      );
+      return;
+    }
+
     setAnimandoEscolha(true);
 
     const animacoes = opacidadeCartas.map((anim, index) =>
@@ -133,23 +165,59 @@ export default function HomeScreen() {
 
     Animated.parallel(animacoes).start(() => {
       setTimeout(async () => {
-        const hoje = obterDataLocal();
-
-        setOraculoAtual(oraculoEscolhido);
-        setModoEscolha(false);
-        setOpcoesOraculo([]);
-        setCooldownAtivo(true);
-        setTempoRestante('disponível amanhã');
-        setAnimandoEscolha(false);
-
         try {
+          const response = await fetch(`${API_URL}/registrar-leitura`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              cardId: String(oraculoEscolhido.id),
+              frase: oraculoEscolhido.frase,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            if (response.status === 429) {
+              setModoEscolha(false);
+              setOpcoesOraculo([]);
+              setCooldownAtivo(true);
+              setTempoRestante('disponível amanhã');
+
+              Alert.alert(
+                'Consulta já realizada',
+                data?.error || 'Você já consultou seu oráculo hoje.'
+              );
+              return;
+            }
+
+            throw new Error(data?.error || 'Erro ao registrar leitura.');
+          }
+
+          setOraculoAtual(oraculoEscolhido);
+          setModoEscolha(false);
+          setOpcoesOraculo([]);
+          setCooldownAtivo(true);
+          setTempoRestante('disponível amanhã');
+          setAnimandoEscolha(false);
+
           await AsyncStorage.setItem(
             STORAGE_ORACULO,
             JSON.stringify(oraculoEscolhido)
           );
-          await AsyncStorage.setItem(STORAGE_ULTIMA_CONSULTA, hoje);
-        } catch (error) {
-          console.log('Erro ao salvar consulta do dia:', error);
+        } catch (error: any) {
+          console.log('Erro ao registrar leitura:', error);
+          setModoEscolha(false);
+          setOpcoesOraculo([]);
+          setAnimandoEscolha(false);
+
+          Alert.alert(
+            'Erro',
+            error?.message || 'Não foi possível registrar sua leitura.'
+          );
         }
       }, 900);
     });
@@ -158,19 +226,6 @@ export default function HomeScreen() {
   async function copiarFrase() {
     await Clipboard.setStringAsync(oraculoAtual.frase);
     Alert.alert('Copiado', 'A frase foi copiada com sucesso.');
-  }
-
-  async function resetarCooldownDev() {
-    try {
-      await AsyncStorage.removeItem(STORAGE_ULTIMA_CONSULTA);
-      setCooldownAtivo(false);
-      setTempoRestante('');
-      setModoEscolha(false);
-      setOpcoesOraculo([]);
-      Alert.alert('DEV', 'Consulta diária resetada com sucesso.');
-    } catch (error) {
-      console.log('Erro ao resetar cooldown:', error);
-    }
   }
 
   if (!fontsLoaded || carregando) {
@@ -285,17 +340,6 @@ export default function HomeScreen() {
             <Text style={styles.textoBotaoInterpretar}>Interpretar</Text>
           </TouchableOpacity>
         )}
-
-        <View style={styles.rowBotoes}>
-          {__DEV__ && (
-            <TouchableOpacity
-              style={styles.botaoDev}
-              onPress={resetarCooldownDev}
-            >
-              <Text style={styles.textoBotaoDev}>Reset</Text>
-            </TouchableOpacity>
-          )}
-        </View>
       </View>
     </ImageBackground>
   );
@@ -422,13 +466,6 @@ const styles = StyleSheet.create({
     color: '#C9A96B',
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
-  rowBotoes: {
-    flexDirection: 'row',
-    width: '100%',
-    maxWidth: 300,
-    justifyContent: 'center',
-    marginTop: 4,
-  },
   botaoPrincipal: {
     width: '100%',
     maxWidth: 300,
@@ -446,21 +483,6 @@ const styles = StyleSheet.create({
   textoBotaoPrincipal: {
     color: '#F1C97A',
     fontSize: 20,
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-  },
-  botaoDev: {
-    flex: 1,
-    maxWidth: 140,
-    paddingVertical: 12,
-    borderRadius: 999,
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 80, 80, 0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 120, 120, 0.55)',
-  },
-  textoBotaoDev: {
-    color: '#FFD1D1',
-    fontSize: 16,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
   botaoInterpretar: {

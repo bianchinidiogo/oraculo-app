@@ -11,10 +11,9 @@ import {
   ActivityIndicator,
   ImageBackground,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../lib/supabase';
 
-const STORAGE_USER_ID = 'oraculo_user_id';
 const API_URL = 'https://oraculo-vercel.vercel.app/api';
 
 const AREAS_DA_VIDA = [
@@ -41,35 +40,6 @@ export default function InterpretacaoScreen() {
   const [carregando, setCarregando] = useState(false);
   const [interpretacao, setInterpretacao] = useState('');
 
-  async function obterOuCriarUserId() {
-    const salvo = await AsyncStorage.getItem(STORAGE_USER_ID);
-
-    if (salvo) return salvo;
-
-    const novoId = `user_${Date.now()}_${Math.random()
-      .toString(36)
-      .slice(2, 10)}`;
-
-    await AsyncStorage.setItem(STORAGE_USER_ID, novoId);
-    return novoId;
-  }
-
-  async function resetarUserIdDev() {
-    try {
-      const novoId = `user_${Date.now()}_${Math.random()
-        .toString(36)
-        .slice(2, 10)}`;
-
-      await AsyncStorage.setItem(STORAGE_USER_ID, novoId);
-      setInterpretacao('');
-
-      Alert.alert('Modo Dev', 'User ID recriado com sucesso para novo teste.');
-    } catch (error) {
-      console.log('Erro ao resetar userId:', error);
-      Alert.alert('Erro', 'Não foi possível resetar o userId.');
-    }
-  }
-
   async function gerarInterpretacao() {
     if (!frase) {
       Alert.alert('Erro', 'Frase não encontrada.');
@@ -84,10 +54,21 @@ export default function InterpretacaoScreen() {
       return;
     }
 
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user) {
+      Alert.alert(
+        'Login necessário',
+        'Entre na sua conta para gerar uma interpretação.'
+      );
+      return;
+    }
+
     setCarregando(true);
 
     try {
-      const userId = await obterOuCriarUserId();
       const endpoint = `${API_URL}/interpretar`;
 
       console.log('Chamando endpoint:', endpoint);
@@ -95,19 +76,18 @@ export default function InterpretacaoScreen() {
         frase,
         area: areaSelecionada,
         cardId: id,
-        userId,
       });
 
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           frase,
           area: areaSelecionada,
           cardId: id,
-          userId,
         }),
       });
 
@@ -117,6 +97,11 @@ export default function InterpretacaoScreen() {
       console.log('Resposta da API:', data);
 
       if (!response.ok) {
+        if (response.status === 401) {
+          Alert.alert('Sessão inválida', 'Faça login novamente.');
+          return;
+        }
+
         if (response.status === 429) {
           Alert.alert(
             'Limite diário',
@@ -227,17 +212,6 @@ export default function InterpretacaoScreen() {
               {carregando ? 'Interpretando...' : 'Gerar interpretação'}
             </Text>
           </TouchableOpacity>
-
-          {__DEV__ && (
-            <TouchableOpacity
-              style={styles.botaoDev}
-              onPress={resetarUserIdDev}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="refresh" size={18} color="#1a1230" />
-              <Text style={styles.textoBotaoDev}>Resetar userId</Text>
-            </TouchableOpacity>
-          )}
 
           {carregando && (
             <ActivityIndicator
@@ -360,22 +334,6 @@ const styles = StyleSheet.create({
   textoBotaoPrincipal: {
     color: '#F1C97A',
     fontSize: 18,
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-  },
-  botaoDev: {
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#E8C27A',
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 999,
-    marginBottom: 8,
-  },
-  textoBotaoDev: {
-    color: '#1a1230',
-    fontSize: 15,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
   loader: {
