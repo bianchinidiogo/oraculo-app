@@ -42,8 +42,26 @@ export default function HomeScreen() {
   ]).current;
 
   useEffect(() => {
-    carregarEstadoInicial();
+    iniciarApp();
   }, []);
+
+  async function iniciarApp() {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.user) {
+        router.replace('/login');
+        return;
+      }
+
+      await carregarEstadoInicial();
+    } catch (error) {
+      console.log('Erro ao iniciar app:', error);
+      router.replace('/login');
+    }
+  }
 
   async function carregarEstadoInicial() {
     try {
@@ -60,6 +78,7 @@ export default function HomeScreen() {
       if (!session?.user) {
         setCooldownAtivo(false);
         setTempoRestante('');
+        router.replace('/login');
         return;
       }
 
@@ -115,6 +134,7 @@ export default function HomeScreen() {
         'Login necessário',
         'Entre na sua conta para realizar sua consulta diária.'
       );
+      router.replace('/login');
       return;
     }
 
@@ -150,6 +170,7 @@ export default function HomeScreen() {
         'Login necessário',
         'Entre na sua conta para realizar sua consulta diária.'
       );
+      router.replace('/login');
       return;
     }
 
@@ -181,11 +202,18 @@ export default function HomeScreen() {
           const data = await response.json();
 
           if (!response.ok) {
+            if (response.status === 401) {
+              Alert.alert('Sessão inválida', 'Faça login novamente.');
+              router.replace('/login');
+              return;
+            }
+
             if (response.status === 429) {
               setModoEscolha(false);
               setOpcoesOraculo([]);
               setCooldownAtivo(true);
               setTempoRestante('disponível amanhã');
+              setAnimandoEscolha(false);
 
               Alert.alert(
                 'Consulta já realizada',
