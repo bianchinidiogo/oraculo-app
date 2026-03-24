@@ -16,13 +16,13 @@ import { supabase } from '../lib/supabase';
 const API_URL = 'https://oraculo-vercel.vercel.app/api';
 
 type LeituraSalva = {
-  favoritoId: number;
-  leituraId: number;
+  id: number;
+  leitura_id: number;
   frase: string;
-  cardId?: string | null;
-  dataRef?: string | null;
-  createdAt?: string | null;
-  favoritadaEm?: string | null;
+  area?: string | null;
+  interpretacao?: string | null;
+  card_id?: string | null;
+  created_at?: string | null;
 };
 
 export default function LeiturasSalvasScreen() {
@@ -115,9 +115,7 @@ export default function LeiturasSalvasScreen() {
         throw new Error(data?.error || 'Erro ao remover.');
       }
 
-      setLeituras(prev =>
-        prev.filter(item => item.favoritoId !== favoritoId)
-      );
+      setLeituras(prev => prev.filter(item => item.id !== favoritoId));
     } catch (error: any) {
       console.log('Erro ao remover leitura:', error);
 
@@ -128,15 +126,16 @@ export default function LeiturasSalvasScreen() {
     }
   }
 
-  function formatarData(data?: string | null) {
+  function formatarDataHora(data?: string | null) {
     if (!data) return '';
 
-    const partes = data.split('-');
-    if (partes.length === 3) {
-      return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    const date = new Date(data);
+
+    if (Number.isNaN(date.getTime())) {
+      return data;
     }
 
-    return data;
+    return date.toLocaleDateString('pt-BR');
   }
 
   if (!fontsLoaded || carregando) {
@@ -182,15 +181,32 @@ export default function LeiturasSalvasScreen() {
             </View>
           ) : (
             leituras.map(item => (
-              <View key={item.favoritoId} style={styles.cardLeitura}>
+              <View key={item.id} style={styles.cardLeitura}>
                 <Text style={styles.rotulo}>Mensagem</Text>
                 <Text style={styles.frase}>{item.frase}</Text>
 
-                <View style={styles.linhaInfo}>
-                  <Text style={styles.infoTexto}>
-                    Data da leitura: {formatarData(item.dataRef)}
-                  </Text>
-                </View>
+                {!!item.area && (
+                  <View style={styles.linhaInfo}>
+                    <Text style={styles.infoTexto}>Área: {item.area}</Text>
+                  </View>
+                )}
+
+                {!!item.created_at && (
+                  <View style={styles.linhaInfo}>
+                    <Text style={styles.infoTexto}>
+                      Salva em: {formatarDataHora(item.created_at)}
+                    </Text>
+                  </View>
+                )}
+
+                {!!item.interpretacao && (
+                  <View style={styles.cardInterpretacaoMini}>
+                    <Text style={styles.rotulo}>Interpretação salva</Text>
+                    <Text style={styles.textoInterpretacaoMini}>
+                      {item.interpretacao}
+                    </Text>
+                  </View>
+                )}
 
                 <TouchableOpacity
                   style={styles.botaoAbrir}
@@ -200,8 +216,8 @@ export default function LeiturasSalvasScreen() {
                       pathname: '/interpretacao',
                       params: {
                         frase: item.frase,
-                        leituraId: String(item.leituraId),
-                        cardId: String(item.cardId || ''),
+                        leituraId: String(item.leitura_id),
+                        cardId: String(item.card_id || ''),
                       },
                     })
                   }
@@ -223,7 +239,7 @@ export default function LeiturasSalvasScreen() {
                         {
                           text: 'Remover',
                           style: 'destructive',
-                          onPress: () => removerLeitura(item.favoritoId),
+                          onPress: () => removerLeitura(item.id),
                         },
                       ]
                     );
@@ -316,12 +332,29 @@ const styles = StyleSheet.create({
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
   linhaInfo: {
-    marginBottom: 14,
+    marginBottom: 10,
   },
   infoTexto: {
     color: '#BFA7E8',
     fontSize: 14,
     textAlign: 'center',
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+  cardInterpretacaoMini: {
+    width: '100%',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(184,146,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    marginBottom: 14,
+    marginTop: 6,
+  },
+  textoInterpretacaoMini: {
+    color: '#F2E8FF',
+    fontSize: 15,
+    lineHeight: 24,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
   botaoAbrir: {

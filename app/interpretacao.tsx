@@ -263,7 +263,18 @@ export default function InterpretacaoScreen() {
     }
 
     if (!leituraId) {
-      Alert.alert('Atenção', 'Não foi possível identificar esta leitura.');
+      Alert.alert(
+        'Nova leitura necessária',
+        'Essa mensagem foi aberta sem um registro válido. Gere uma nova leitura antes de salvar.'
+      );
+      return;
+    }
+
+    if (!interpretacao || !areaSelecionada) {
+      Alert.alert(
+        'Atenção',
+        'Gere a interpretação antes de salvar esta leitura.'
+      );
       return;
     }
 
@@ -278,6 +289,10 @@ export default function InterpretacaoScreen() {
         },
         body: JSON.stringify({
           leituraId: Number(leituraId),
+          frase,
+          area: areaSelecionada,
+          interpretacao,
+          cardId: cardId || null,
         }),
       });
 
