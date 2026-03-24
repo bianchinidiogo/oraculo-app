@@ -115,7 +115,6 @@ export default function LeiturasSalvasScreen() {
         throw new Error(data?.error || 'Erro ao remover.');
       }
 
-      // remove da tela instantaneamente 🔥
       setLeituras(prev =>
         prev.filter(item => item.favoritoId !== favoritoId)
       );
@@ -201,7 +200,8 @@ export default function LeiturasSalvasScreen() {
                       pathname: '/interpretacao',
                       params: {
                         frase: item.frase,
-                        id: String(item.cardId || ''),
+                        leituraId: String(item.leituraId),
+                        cardId: String(item.cardId || ''),
                       },
                     })
                   }
@@ -229,9 +229,7 @@ export default function LeiturasSalvasScreen() {
                     );
                   }}
                 >
-                  <Text style={styles.textoBotaoRemover}>
-                    Remover
-                  </Text>
+                  <Text style={styles.textoBotaoRemover}>Remover</Text>
                 </TouchableOpacity>
               </View>
             ))

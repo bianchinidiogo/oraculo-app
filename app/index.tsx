@@ -35,7 +35,6 @@ export default function HomeScreen() {
   const [cooldownAtivo, setCooldownAtivo] = useState(false);
   const [tempoRestante, setTempoRestante] = useState('');
   const [carregando, setCarregando] = useState(true);
-  const [salvandoLeitura, setSalvandoLeitura] = useState(false);
 
   const [plano, setPlano] = useState<Plano>('free');
   const [leiturasHoje, setLeiturasHoje] = useState(0);
@@ -335,81 +334,6 @@ export default function HomeScreen() {
     });
   }
 
-  async function salvarLeitura() {
-    if (modoEscolha) {
-      return;
-    }
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session?.access_token) {
-      Alert.alert('Login necessário', 'Faça login novamente.');
-      router.replace('/login');
-      return;
-    }
-
-    if (!oraculoAtual?.leituraId) {
-      Alert.alert(
-        'Atenção',
-        'Faça uma nova leitura registrada para poder salvá-la.'
-      );
-      return;
-    }
-
-    setSalvandoLeitura(true);
-
-    try {
-      const response = await fetch(`${API_URL}/favoritar-leitura`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          leituraId: oraculoAtual.leituraId,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.status === 401) {
-        Alert.alert('Sessão inválida', 'Faça login novamente.');
-        router.replace('/login');
-        return;
-      }
-
-      if (response.status === 403) {
-        Alert.alert(
-          'Recurso premium',
-          data?.error || 'Salvar leituras é um recurso do plano premium.'
-        );
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Não foi possível salvar a leitura.');
-      }
-
-      Alert.alert(
-        data?.jaFavoritada ? 'Já salva' : 'Leitura salva',
-        data?.mensagem ||
-          (data?.jaFavoritada
-            ? 'Essa leitura já estava salva.'
-            : 'Sua leitura foi salva com sucesso.')
-      );
-    } catch (error: any) {
-      console.log('Erro ao salvar leitura:', error);
-      Alert.alert(
-        'Erro',
-        error?.message || 'Não foi possível salvar a leitura.'
-      );
-    } finally {
-      setSalvandoLeitura(false);
-    }
-  }
-
   async function copiarFrase() {
     await Clipboard.setStringAsync(oraculoAtual.frase);
     Alert.alert('Copiado', 'A frase foi copiada com sucesso.');
@@ -523,52 +447,53 @@ export default function HomeScreen() {
 
         {!modoEscolha && (
           <>
+            <View style={styles.linhaAcoes}>
+              <TouchableOpacity
+                style={styles.botaoSairLinha}
+                onPress={handleLogout}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="log-out-outline" size={18} color="#E8C27A" />
+                <Text style={styles.textoBotaoSairLinha}>Sair</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.botaoInterpretarLinha}
+                onPress={() =>
+                  router.push({
+                    pathname: '/interpretacao',
+                    params: {
+                      frase: oraculoAtual.frase,
+                      leituraId: String(oraculoAtual.leituraId || ''),
+                      cardId: String(oraculoAtual.id),
+                    },
+                  })
+                }
+                activeOpacity={0.85}
+              >
+                <Text style={styles.textoBotaoInterpretar}>Interpretar</Text>
+              </TouchableOpacity>
+            </View>
+
             <TouchableOpacity
-              style={styles.botaoInterpretar}
+              style={styles.botaoSalvas}
               onPress={() =>
                 router.push({
-                  pathname: '/interpretacao',
-                  params: {
-                    frase: oraculoAtual.frase,
-                    id: String(oraculoAtual.id),
-                  },
+                  pathname: '/leituras-salvas',
                 })
               }
               activeOpacity={0.85}
             >
-              <Text style={styles.textoBotaoInterpretar}>Interpretar</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.botaoSalvar,
-                salvandoLeitura && styles.botaoDesativado,
-              ]}
-              onPress={salvarLeitura}
-              activeOpacity={0.85}
-              disabled={salvandoLeitura}
-            >
               <Ionicons
-                name="bookmark-outline"
+                name="albums-outline"
                 size={18}
                 color="#E8D8FF"
-                style={styles.iconeBotaoSalvar}
+                style={styles.iconeBotaoSalvas}
               />
-              <Text style={styles.textoBotaoSalvar}>
-                {salvandoLeitura ? 'Salvando...' : 'Salvar leitura'}
-              </Text>
+              <Text style={styles.textoBotaoSalvas}>Leituras salvas</Text>
             </TouchableOpacity>
           </>
         )}
-
-        <TouchableOpacity
-          style={styles.botaoLogout}
-          onPress={handleLogout}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="log-out-outline" size={18} color="#E8C27A" />
-          <Text style={styles.textoLogout}>Sair</Text>
-        </TouchableOpacity>
       </View>
     </ImageBackground>
   );
@@ -737,28 +662,52 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
-  botaoInterpretar: {
+  linhaAcoes: {
     width: '100%',
     maxWidth: 300,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 14,
+  },
+  botaoSairLinha: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,194,122,0.3)',
+    paddingVertical: 15,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  textoBotaoSairLinha: {
+    color: '#E8C27A',
+    fontSize: 16,
+    marginLeft: 6,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+  botaoInterpretarLinha: {
+    flex: 1.4,
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1.2,
     borderColor: '#B892FF',
     paddingVertical: 15,
     borderRadius: 999,
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'center',
   },
   textoBotaoInterpretar: {
     color: '#E8D8FF',
     fontSize: 18,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
-  botaoSalvar: {
+  botaoSalvas: {
     width: '100%',
     maxWidth: 300,
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1.2,
-    borderColor: '#7FA6FF',
+    borderColor: '#A77BFF',
     paddingVertical: 15,
     borderRadius: 999,
     alignItems: 'center',
@@ -766,29 +715,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 14,
   },
-  iconeBotaoSalvar: {
+  iconeBotaoSalvas: {
     marginRight: 8,
   },
-  textoBotaoSalvar: {
+  textoBotaoSalvas: {
     color: '#E8D8FF',
     fontSize: 18,
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-  },
-  botaoLogout: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(232,194,122,0.3)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  textoLogout: {
-    color: '#E8C27A',
-    fontSize: 16,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
 });

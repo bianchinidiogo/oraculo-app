@@ -33,15 +33,17 @@ export default function InterpretacaoScreen() {
     PlayfairDisplay_600SemiBold,
   });
 
-  const { frase, id } = useLocalSearchParams<{
+  const { frase, leituraId, cardId } = useLocalSearchParams<{
     frase?: string;
-    id?: string;
+    leituraId?: string;
+    cardId?: string;
   }>();
 
   const [areaSelecionada, setAreaSelecionada] = useState('');
   const [carregando, setCarregando] = useState(false);
   const [carregandoStatus, setCarregandoStatus] = useState(true);
   const [interpretacao, setInterpretacao] = useState('');
+  const [salvandoLeitura, setSalvandoLeitura] = useState(false);
 
   const [plano, setPlano] = useState<Plano>('free');
   const [interpretacaoRealizadaHoje, setInterpretacaoRealizadaHoje] = useState(false);
@@ -179,9 +181,7 @@ export default function InterpretacaoScreen() {
     setCarregando(true);
 
     try {
-      const endpoint = `${API_URL}/interpretar`;
-
-      const response = await fetch(endpoint, {
+      const response = await fetch(`${API_URL}/interpretar`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -190,7 +190,7 @@ export default function InterpretacaoScreen() {
         body: JSON.stringify({
           frase,
           area: areaSelecionada,
-          cardId: id,
+          cardId: cardId || null,
         }),
       });
 
@@ -248,6 +248,74 @@ export default function InterpretacaoScreen() {
       );
     } finally {
       setCarregando(false);
+    }
+  }
+
+  async function salvarLeitura() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      Alert.alert('Login necessário', 'Faça login novamente.');
+      router.replace('/login');
+      return;
+    }
+
+    if (!leituraId) {
+      Alert.alert('Atenção', 'Não foi possível identificar esta leitura.');
+      return;
+    }
+
+    setSalvandoLeitura(true);
+
+    try {
+      const response = await fetch(`${API_URL}/favoritar-leitura`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          leituraId: Number(leituraId),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.status === 401) {
+        Alert.alert('Sessão inválida', 'Faça login novamente.');
+        router.replace('/login');
+        return;
+      }
+
+      if (response.status === 403) {
+        Alert.alert(
+          'Recurso premium',
+          data?.error || 'Salvar leituras é um recurso do plano premium.'
+        );
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Não foi possível salvar a leitura.');
+      }
+
+      Alert.alert(
+        data?.jaFavoritada ? 'Já salva' : 'Leitura salva',
+        data?.mensagem ||
+          (data?.jaFavoritada
+            ? 'Essa leitura já estava salva.'
+            : 'Sua leitura foi salva com sucesso.')
+      );
+    } catch (error: any) {
+      console.log('Erro ao salvar leitura:', error);
+      Alert.alert(
+        'Erro',
+        error?.message || 'Não foi possível salvar a leitura.'
+      );
+    } finally {
+      setSalvandoLeitura(false);
     }
   }
 
@@ -373,10 +441,32 @@ export default function InterpretacaoScreen() {
           )}
 
           {!!interpretacao && (
-            <View style={styles.cardInterpretacao}>
-              <Text style={styles.rotulo}>Leitura simbólica</Text>
-              <Text style={styles.textoInterpretacao}>{interpretacao}</Text>
-            </View>
+            <>
+              <View style={styles.cardInterpretacao}>
+                <Text style={styles.rotulo}>Leitura simbólica</Text>
+                <Text style={styles.textoInterpretacao}>{interpretacao}</Text>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.botaoSalvar,
+                  salvandoLeitura && styles.botaoDesativado,
+                ]}
+                onPress={salvarLeitura}
+                activeOpacity={0.85}
+                disabled={salvandoLeitura}
+              >
+                <Ionicons
+                  name="bookmark-outline"
+                  size={18}
+                  color="#E8D8FF"
+                  style={styles.iconeBotaoSalvar}
+                />
+                <Text style={styles.textoBotaoSalvar}>
+                  {salvandoLeitura ? 'Salvando...' : 'Salvar leitura'}
+                </Text>
+              </TouchableOpacity>
+            </>
           )}
         </ScrollView>
       </ImageBackground>
@@ -557,6 +647,26 @@ const styles = StyleSheet.create({
     color: '#F2E8FF',
     fontSize: 17,
     lineHeight: 28,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+  botaoSalvar: {
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1.2,
+    borderColor: '#7FA6FF',
+    paddingVertical: 15,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    marginTop: 14,
+  },
+  iconeBotaoSalvar: {
+    marginRight: 8,
+  },
+  textoBotaoSalvar: {
+    color: '#E8D8FF',
+    fontSize: 18,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
 });
