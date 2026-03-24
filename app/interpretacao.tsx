@@ -1,6 +1,6 @@
 import { useFonts, PlayfairDisplay_600SemiBold } from '@expo-google-fonts/playfair-display';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -24,7 +24,9 @@ const AREAS_DA_VIDA = [
   'Espiritualidade',
   'Saúde',
   'Propósito',
-];
+] as const;
+
+type Plano = 'free' | 'premium';
 
 export default function InterpretacaoScreen() {
   const [fontsLoaded] = useFonts({
@@ -38,7 +40,101 @@ export default function InterpretacaoScreen() {
 
   const [areaSelecionada, setAreaSelecionada] = useState('');
   const [carregando, setCarregando] = useState(false);
+  const [carregandoStatus, setCarregandoStatus] = useState(true);
   const [interpretacao, setInterpretacao] = useState('');
+
+  const [plano, setPlano] = useState<Plano>('free');
+  const [interpretacaoRealizadaHoje, setInterpretacaoRealizadaHoje] = useState(false);
+  const [areasUsadasHoje, setAreasUsadasHoje] = useState<string[]>([]);
+  const [areasDisponiveisHoje, setAreasDisponiveisHoje] = useState<string[]>([
+    ...AREAS_DA_VIDA,
+  ]);
+
+  useEffect(() => {
+    carregarStatus();
+  }, []);
+
+  async function carregarStatus() {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        Alert.alert('Login necessário', 'Faça login novamente.');
+        router.replace('/login');
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/status-diario`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Erro ao carregar status diário.');
+      }
+
+      const planoAtual: Plano = data?.plano === 'premium' ? 'premium' : 'free';
+      const areasUsadas = Array.isArray(data?.areasUsadasHoje)
+        ? data.areasUsadasHoje
+        : [];
+      const areasDisponiveis = Array.isArray(data?.areasDisponiveisHoje)
+        ? data.areasDisponiveisHoje
+        : [...AREAS_DA_VIDA];
+
+      setPlano(planoAtual);
+      setInterpretacaoRealizadaHoje(!!data?.interpretacaoRealizadaHoje);
+      setAreasUsadasHoje(areasUsadas);
+      setAreasDisponiveisHoje(areasDisponiveis);
+
+      if (planoAtual === 'free' && data?.interpretacaoRealizadaHoje) {
+        setAreaSelecionada('');
+      }
+    } catch (error: any) {
+      console.log('Erro ao carregar status da interpretação:', error);
+      Alert.alert(
+        'Erro',
+        error?.message || 'Não foi possível carregar o status de interpretação.'
+      );
+    } finally {
+      setCarregandoStatus(false);
+    }
+  }
+
+  function areaEstaBloqueada(area: string) {
+    if (plano === 'free') {
+      return interpretacaoRealizadaHoje;
+    }
+
+    return areasUsadasHoje.includes(area);
+  }
+
+  function podeGerarInterpretacao() {
+    if (!areaSelecionada) return false;
+    if (carregando) return false;
+    if (carregandoStatus) return false;
+    if (areaEstaBloqueada(areaSelecionada)) return false;
+    return true;
+  }
+
+  function obterTextoStatus() {
+    if (plano === 'premium') {
+      if (areasDisponiveisHoje.length === 0) {
+        return 'Você já interpretou todas as áreas disponíveis hoje.';
+      }
+
+      return `Áreas disponíveis hoje: ${areasDisponiveisHoje.length}/${AREAS_DA_VIDA.length}`;
+    }
+
+    return interpretacaoRealizadaHoje
+      ? 'No plano gratuito, você já usou sua interpretação de hoje.'
+      : 'No plano gratuito, você tem 1 interpretação disponível hoje.';
+  }
 
   async function gerarInterpretacao() {
     if (!frase) {
@@ -54,15 +150,29 @@ export default function InterpretacaoScreen() {
       return;
     }
 
+    if (plano === 'free' && interpretacaoRealizadaHoje) {
+      Alert.alert(
+        'Limite diário',
+        'No plano gratuito, você já realizou sua interpretação de hoje.'
+      );
+      return;
+    }
+
+    if (plano === 'premium' && areasUsadasHoje.includes(areaSelecionada)) {
+      Alert.alert(
+        'Área já interpretada',
+        `Você já realizou a interpretação da área ${areaSelecionada} hoje.`
+      );
+      return;
+    }
+
     const {
       data: { session },
     } = await supabase.auth.getSession();
 
-    if (!session?.user) {
-      Alert.alert(
-        'Login necessário',
-        'Entre na sua conta para gerar uma interpretação.'
-      );
+    if (!session?.access_token) {
+      Alert.alert('Login necessário', 'Faça login novamente.');
+      router.replace('/login');
       return;
     }
 
@@ -70,13 +180,6 @@ export default function InterpretacaoScreen() {
 
     try {
       const endpoint = `${API_URL}/interpretar`;
-
-      console.log('Chamando endpoint:', endpoint);
-      console.log('Payload:', {
-        frase,
-        area: areaSelecionada,
-        cardId: id,
-      });
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -93,20 +196,20 @@ export default function InterpretacaoScreen() {
 
       const data = await response.json();
 
-      console.log('Status da API:', response.status);
-      console.log('Resposta da API:', data);
-
       if (!response.ok) {
         if (response.status === 401) {
           Alert.alert('Sessão inválida', 'Faça login novamente.');
+          router.replace('/login');
           return;
         }
 
         if (response.status === 429) {
           Alert.alert(
             'Limite diário',
-            data?.error || 'Você já fez sua interpretação hoje.'
+            data?.error || 'Você já realizou essa interpretação hoje.'
           );
+
+          await carregarStatus();
           return;
         }
 
@@ -118,6 +221,24 @@ export default function InterpretacaoScreen() {
       }
 
       setInterpretacao(data.interpretacao);
+
+      const planoAtual: Plano = data?.plano === 'premium' ? 'premium' : 'free';
+      const novasAreasUsadas = Array.isArray(data?.areasUsadasHoje)
+        ? data.areasUsadasHoje
+        : planoAtual === 'premium'
+        ? [...new Set([...areasUsadasHoje, areaSelecionada])]
+        : [areaSelecionada];
+
+      const novasAreasDisponiveis = Array.isArray(data?.areasDisponiveisHoje)
+        ? data.areasDisponiveisHoje
+        : planoAtual === 'premium'
+        ? AREAS_DA_VIDA.filter(area => !novasAreasUsadas.includes(area))
+        : [];
+
+      setPlano(planoAtual);
+      setInterpretacaoRealizadaHoje(true);
+      setAreasUsadasHoje(novasAreasUsadas);
+      setAreasDisponiveisHoje(novasAreasDisponiveis);
     } catch (error: any) {
       console.log('Erro ao gerar interpretação:', error);
 
@@ -130,7 +251,7 @@ export default function InterpretacaoScreen() {
     }
   }
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded || carregandoStatus) {
     return null;
   }
 
@@ -170,11 +291,25 @@ export default function InterpretacaoScreen() {
             <Text style={styles.frase}>{frase}</Text>
           </View>
 
+          <View style={styles.cardStatus}>
+            <Text style={styles.statusTitulo}>
+              {plano === 'premium' ? 'Plano Premium' : 'Plano Gratuito'}
+            </Text>
+            <Text style={styles.statusTexto}>{obterTextoStatus()}</Text>
+
+            {plano === 'premium' && areasUsadasHoje.length > 0 && (
+              <Text style={styles.statusTextoMenor}>
+                Já usadas hoje: {areasUsadasHoje.join(', ')}
+              </Text>
+            )}
+          </View>
+
           <Text style={styles.subtitulo}>Escolha uma área da vida</Text>
 
           <View style={styles.areasContainer}>
             {AREAS_DA_VIDA.map(area => {
               const selecionada = areaSelecionada === area;
+              const bloqueada = areaEstaBloqueada(area);
 
               return (
                 <TouchableOpacity
@@ -182,18 +317,34 @@ export default function InterpretacaoScreen() {
                   style={[
                     styles.botaoArea,
                     selecionada && styles.botaoAreaSelecionada,
+                    bloqueada && styles.botaoAreaBloqueada,
                   ]}
-                  onPress={() => setAreaSelecionada(area)}
-                  activeOpacity={0.85}
+                  onPress={() => {
+                    if (!bloqueada) {
+                      setAreaSelecionada(area);
+                    }
+                  }}
+                  activeOpacity={bloqueada ? 1 : 0.85}
+                  disabled={bloqueada}
                 >
                   <Text
                     style={[
                       styles.textoArea,
                       selecionada && styles.textoAreaSelecionada,
+                      bloqueada && styles.textoAreaBloqueada,
                     ]}
                   >
                     {area}
                   </Text>
+
+                  {bloqueada && (
+                    <Ionicons
+                      name="lock-closed"
+                      size={14}
+                      color="#9F8BB9"
+                      style={styles.iconeBloqueio}
+                    />
+                  )}
                 </TouchableOpacity>
               );
             })}
@@ -202,10 +353,10 @@ export default function InterpretacaoScreen() {
           <TouchableOpacity
             style={[
               styles.botaoPrincipal,
-              carregando && styles.botaoDesativado,
+              !podeGerarInterpretacao() && styles.botaoDesativado,
             ]}
             onPress={gerarInterpretacao}
-            disabled={carregando}
+            disabled={!podeGerarInterpretacao()}
             activeOpacity={0.85}
           >
             <Text style={styles.textoBotaoPrincipal}>
@@ -257,66 +408,120 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(232,194,122,0.28)',
+    borderColor: 'rgba(232,194,122,0.25)',
   },
   titulo: {
-    fontSize: 32,
+    fontSize: 34,
     color: '#E8C27A',
-    marginBottom: 24,
+    marginBottom: 18,
     textAlign: 'center',
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
   cardFrase: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    width: '100%',
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(232,194,122,0.35)',
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 24,
+    borderColor: 'rgba(232,194,122,0.22)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    marginBottom: 18,
   },
   rotulo: {
-    fontSize: 14,
     color: '#C9A96B',
-    marginBottom: 10,
+    fontSize: 14,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
   frase: {
-    fontSize: 24,
-    lineHeight: 34,
     color: '#F6E7C1',
+    fontSize: 22,
+    lineHeight: 30,
+    textAlign: 'center',
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+  cardStatus: {
+    width: '100%',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(184,146,255,0.22)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 18,
+  },
+  statusTitulo: {
+    color: '#F1C97A',
+    fontSize: 18,
+    marginBottom: 6,
+    textAlign: 'center',
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+  statusTexto: {
+    color: '#E8D8FF',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+  statusTextoMenor: {
+    color: '#BFA7E8',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginTop: 8,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
   subtitulo: {
-    fontSize: 20,
-    color: '#F6E7C1',
+    color: '#E8C27A',
+    fontSize: 22,
     marginBottom: 14,
+    textAlign: 'center',
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
   areasContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: 10,
     marginBottom: 24,
   },
   botaoArea: {
+    minWidth: 132,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     borderRadius: 999,
-    borderWidth: 1,
+    borderWidth: 1.2,
     borderColor: '#7B5BBE',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
   },
   botaoAreaSelecionada: {
-    backgroundColor: '#4B2B75',
+    backgroundColor: '#3C235A',
     borderColor: '#E8C27A',
   },
+  botaoAreaBloqueada: {
+    opacity: 0.48,
+    borderColor: '#6A5A84',
+    backgroundColor: 'rgba(255,255,255,0.025)',
+  },
   textoArea: {
-    color: '#F6E7C1',
+    color: '#E8D8FF',
     fontSize: 16,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
   textoAreaSelecionada: {
-    color: '#F1C97A',
+    color: '#F6E7C1',
+  },
+  textoAreaBloqueada: {
+    color: '#B6A6C9',
+  },
+  iconeBloqueio: {
+    marginLeft: 6,
   },
   botaoPrincipal: {
     width: '100%',
@@ -326,32 +531,32 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 999,
     alignItems: 'center',
-    marginBottom: 12,
   },
   botaoDesativado: {
-    opacity: 0.55,
+    opacity: 0.5,
   },
   textoBotaoPrincipal: {
     color: '#F1C97A',
-    fontSize: 18,
+    fontSize: 20,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
   loader: {
     marginTop: 20,
   },
   cardInterpretacao: {
-    marginTop: 10,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 20,
+    width: '100%',
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(232,194,122,0.35)',
-    padding: 18,
+    borderColor: 'rgba(232,194,122,0.22)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    marginTop: 24,
   },
   textoInterpretacao: {
-    fontSize: 18,
-    lineHeight: 30,
-    color: '#F6E7C1',
+    color: '#F2E8FF',
+    fontSize: 17,
+    lineHeight: 28,
     fontFamily: 'PlayfairDisplay_600SemiBold',
-    textAlign: 'left',
   },
 });

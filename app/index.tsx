@@ -20,16 +20,26 @@ const STORAGE_ORACULO = 'oraculo_atual';
 const API_URL = 'https://oraculo-vercel.vercel.app/api';
 
 type Oraculo = (typeof oraculos)[number];
+type Plano = 'free' | 'premium';
+
+type OraculoSalvo = Oraculo & {
+  leituraId?: number | null;
+};
 
 export default function HomeScreen() {
   const [fontsLoaded] = useFonts({
     PlayfairDisplay_600SemiBold,
   });
 
-  const [oraculoAtual, setOraculoAtual] = useState<Oraculo>(oraculos[0]);
+  const [oraculoAtual, setOraculoAtual] = useState<OraculoSalvo>(oraculos[0]);
   const [cooldownAtivo, setCooldownAtivo] = useState(false);
   const [tempoRestante, setTempoRestante] = useState('');
   const [carregando, setCarregando] = useState(true);
+
+  const [plano, setPlano] = useState<Plano>('free');
+  const [leiturasHoje, setLeiturasHoje] = useState(0);
+  const [maxLeiturasHoje, setMaxLeiturasHoje] = useState(1);
+  const [leiturasRestantes, setLeiturasRestantes] = useState(1);
 
   const [modoEscolha, setModoEscolha] = useState(false);
   const [opcoesOraculo, setOpcoesOraculo] = useState<Oraculo[]>([]);
@@ -63,6 +73,26 @@ export default function HomeScreen() {
     }
   }
 
+  async function handleLogout() {
+    try {
+      await supabase.auth.signOut();
+
+      setCooldownAtivo(false);
+      setTempoRestante('');
+      setModoEscolha(false);
+      setOpcoesOraculo([]);
+      setPlano('free');
+      setLeiturasHoje(0);
+      setMaxLeiturasHoje(1);
+      setLeiturasRestantes(1);
+
+      router.replace('/login');
+    } catch (error) {
+      console.log('Erro ao fazer logout:', error);
+      Alert.alert('Erro', 'Não foi possível sair da conta.');
+    }
+  }
+
   async function carregarEstadoInicial() {
     try {
       const oraculoSalvo = await AsyncStorage.getItem(STORAGE_ORACULO);
@@ -92,14 +122,36 @@ export default function HomeScreen() {
       const data = await response.json();
 
       if (response.ok) {
-        setCooldownAtivo(!!data?.leituraRealizadaHoje);
-        setTempoRestante(data?.leituraRealizadaHoje ? 'disponível amanhã' : '');
+        const planoAtual: Plano = data?.plano === 'premium' ? 'premium' : 'free';
+        const leiturasHojeAtual = Number(data?.leiturasHoje || 0);
+        const maxLeiturasAtual = Number(data?.maxLeiturasHoje || 1);
+        const leiturasRestantesAtual = Math.max(
+          0,
+          Number(data?.leiturasRestantes ?? 0)
+        );
+
+        setPlano(planoAtual);
+        setLeiturasHoje(leiturasHojeAtual);
+        setMaxLeiturasHoje(maxLeiturasAtual);
+        setLeiturasRestantes(leiturasRestantesAtual);
+
+        const esgotou = leiturasRestantesAtual <= 0;
+        setCooldownAtivo(esgotou);
+        setTempoRestante(esgotou ? 'disponível amanhã' : '');
       } else {
+        setPlano('free');
+        setLeiturasHoje(0);
+        setMaxLeiturasHoje(1);
+        setLeiturasRestantes(1);
         setCooldownAtivo(false);
         setTempoRestante('');
       }
     } catch (error) {
       console.log('Erro ao carregar dados do oráculo:', error);
+      setPlano('free');
+      setLeiturasHoje(0);
+      setMaxLeiturasHoje(1);
+      setLeiturasRestantes(1);
       setCooldownAtivo(false);
       setTempoRestante('');
     } finally {
@@ -138,10 +190,12 @@ export default function HomeScreen() {
       return;
     }
 
-    if (cooldownAtivo) {
+    if (leiturasRestantes <= 0) {
       Alert.alert(
-        'Consulta já realizada',
-        'Você já consultou seu oráculo hoje. Uma nova consulta estará disponível amanhã.'
+        'Limite diário',
+        plano === 'premium'
+          ? 'Você já realizou suas 3 leituras de hoje.'
+          : 'Você já realizou sua leitura de hoje.'
       );
       return;
     }
@@ -211,13 +265,20 @@ export default function HomeScreen() {
             if (response.status === 429) {
               setModoEscolha(false);
               setOpcoesOraculo([]);
-              setCooldownAtivo(true);
-              setTempoRestante('disponível amanhã');
               setAnimandoEscolha(false);
 
+              const maxLeituras = Number(data?.maxLeiturasHoje || maxLeiturasHoje);
+              setMaxLeiturasHoje(maxLeituras);
+              setLeiturasRestantes(0);
+              setCooldownAtivo(true);
+              setTempoRestante('disponível amanhã');
+
               Alert.alert(
-                'Consulta já realizada',
-                data?.error || 'Você já consultou seu oráculo hoje.'
+                'Limite diário',
+                data?.error ||
+                  (plano === 'premium'
+                    ? 'Você já realizou suas 3 leituras de hoje.'
+                    : 'Você já realizou sua leitura de hoje.')
               );
               return;
             }
@@ -225,16 +286,38 @@ export default function HomeScreen() {
             throw new Error(data?.error || 'Erro ao registrar leitura.');
           }
 
-          setOraculoAtual(oraculoEscolhido);
+          const leituraId = data?.leitura?.id ?? null;
+          const leiturasHojeAtualizadas = Number(data?.leiturasHoje || 0);
+          const maxLeiturasAtualizadas = Number(
+            data?.maxLeiturasHoje || maxLeiturasHoje
+          );
+          const leiturasRestantesAtualizadas = Math.max(
+            0,
+            Number(data?.leiturasRestantes ?? 0)
+          );
+
+          const novoOraculoAtual: OraculoSalvo = {
+            ...oraculoEscolhido,
+            leituraId,
+          };
+
+          setOraculoAtual(novoOraculoAtual);
           setModoEscolha(false);
           setOpcoesOraculo([]);
-          setCooldownAtivo(true);
-          setTempoRestante('disponível amanhã');
           setAnimandoEscolha(false);
+
+          setPlano(data?.plano === 'premium' ? 'premium' : 'free');
+          setLeiturasHoje(leiturasHojeAtualizadas);
+          setMaxLeiturasHoje(maxLeiturasAtualizadas);
+          setLeiturasRestantes(leiturasRestantesAtualizadas);
+
+          const esgotou = leiturasRestantesAtualizadas <= 0;
+          setCooldownAtivo(esgotou);
+          setTempoRestante(esgotou ? 'disponível amanhã' : '');
 
           await AsyncStorage.setItem(
             STORAGE_ORACULO,
-            JSON.stringify(oraculoEscolhido)
+            JSON.stringify(novoOraculoAtual)
           );
         } catch (error: any) {
           console.log('Erro ao registrar leitura:', error);
@@ -256,6 +339,12 @@ export default function HomeScreen() {
     Alert.alert('Copiado', 'A frase foi copiada com sucesso.');
   }
 
+  function obterTextoBotaoPrincipal() {
+    if (modoEscolha) return 'Escolha sua carta';
+    if (leiturasRestantes <= 0) return 'Leituras esgotadas hoje';
+    return `Consultar (${leiturasRestantes})`;
+  }
+
   if (!fontsLoaded || carregando) {
     return null;
   }
@@ -269,6 +358,19 @@ export default function HomeScreen() {
     >
       <View style={styles.overlay}>
         <Text style={styles.titulo}>Oráculo Diário</Text>
+
+        <View style={styles.cardStatus}>
+          <Text style={styles.statusTitulo}>
+            {plano === 'premium' ? 'Plano Premium' : 'Plano Gratuito'}
+          </Text>
+          <Text style={styles.statusTexto}>
+            Leituras hoje: {leiturasHoje}/{maxLeiturasHoje}
+          </Text>
+          <Text style={styles.statusTexto}>
+            Restantes: {leiturasRestantes}
+            {!!tempoRestante && leiturasRestantes <= 0 ? ` • ${tempoRestante}` : ''}
+          </Text>
+        </View>
 
         {modoEscolha ? (
           <View style={styles.cartasContainer}>
@@ -323,11 +425,7 @@ export default function HomeScreen() {
                     <View />
                   )}
 
-                  <Ionicons
-                    name="copy-outline"
-                    size={18}
-                    color="#E8C27A"
-                  />
+                  <Ionicons name="copy-outline" size={18} color="#E8C27A" />
                 </View>
               </View>
             </ImageBackground>
@@ -343,11 +441,7 @@ export default function HomeScreen() {
           activeOpacity={cooldownAtivo ? 1 : 0.8}
         >
           <Text style={styles.textoBotaoPrincipal}>
-            {modoEscolha
-              ? 'Escolha sua carta'
-              : cooldownAtivo
-              ? 'Consulta realizada hoje'
-              : 'Consultar'}
+            {obterTextoBotaoPrincipal()}
           </Text>
         </TouchableOpacity>
 
@@ -368,6 +462,15 @@ export default function HomeScreen() {
             <Text style={styles.textoBotaoInterpretar}>Interpretar</Text>
           </TouchableOpacity>
         )}
+
+        <TouchableOpacity
+          style={styles.botaoLogout}
+          onPress={handleLogout}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="log-out-outline" size={18} color="#E8C27A" />
+          <Text style={styles.textoLogout}>Sair</Text>
+        </TouchableOpacity>
       </View>
     </ImageBackground>
   );
@@ -391,8 +494,31 @@ const styles = StyleSheet.create({
   titulo: {
     fontSize: 34,
     color: '#E8C27A',
-    marginBottom: 24,
+    marginBottom: 16,
     letterSpacing: 0.5,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+  cardStatus: {
+    width: '100%',
+    maxWidth: 300,
+    marginBottom: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(232,194,122,0.28)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
+  },
+  statusTitulo: {
+    color: '#F1C97A',
+    fontSize: 18,
+    marginBottom: 4,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+  statusTexto: {
+    color: '#E8D8FF',
+    fontSize: 14,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
   cartasContainer: {
@@ -527,6 +653,23 @@ const styles = StyleSheet.create({
   textoBotaoInterpretar: {
     color: '#E8D8FF',
     fontSize: 18,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+  botaoLogout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(232,194,122,0.3)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  textoLogout: {
+    color: '#E8C27A',
+    fontSize: 16,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
 });
