@@ -317,10 +317,10 @@ export default function InterpretacaoScreen() {
       }
 
       Alert.alert(
-        data?.jaFavoritada ? 'Já salva' : 'Leitura salva',
+        data?.jaFavoritada ? 'Leitura atualizada' : 'Leitura salva',
         data?.mensagem ||
           (data?.jaFavoritada
-            ? 'Essa leitura já estava salva.'
+            ? 'A leitura salva foi atualizada com a interpretação.'
             : 'Sua leitura foi salva com sucesso.')
       );
     } catch (error: any) {
