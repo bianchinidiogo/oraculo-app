@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
+import { LoadingScreen } from '../components/loading-screen';
 
 const API_URL = 'https://oraculo-vercel.vercel.app/api';
 
@@ -119,10 +120,7 @@ export default function LeiturasSalvasScreen() {
     } catch (error: any) {
       console.log('Erro ao remover leitura:', error);
 
-      Alert.alert(
-        'Erro',
-        error?.message || 'Não foi possível remover.'
-      );
+      Alert.alert('Erro', error?.message || 'Não foi possível remover.');
     }
   }
 
@@ -139,7 +137,7 @@ export default function LeiturasSalvasScreen() {
   }
 
   if (!fontsLoaded || carregando) {
-    return null;
+    return <LoadingScreen text="Abrindo leituras salvas..." />;
   }
 
   return (
@@ -147,7 +145,7 @@ export default function LeiturasSalvasScreen() {
       <Stack.Screen
         options={{
           headerShown: false,
-          animation: 'fade_from_bottom',
+          animation: 'fade',
           presentation: 'card',
         }}
       />

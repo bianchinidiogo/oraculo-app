@@ -9,10 +9,13 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
-  ImageBackground,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
+import { LoadingScreen } from '../components/loading-screen';
+import { useEvent } from 'expo';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 
 const API_URL = 'https://oraculo-vercel.vercel.app/api';
 
@@ -51,6 +54,18 @@ export default function InterpretacaoScreen() {
   const [areasDisponiveisHoje, setAreasDisponiveisHoje] = useState<string[]>([
     ...AREAS_DA_VIDA,
   ]);
+
+  const player = useVideoPlayer(require('../assets/videos/oraculo-bg.mp4'));
+
+  useEffect(() => {
+    player.loop = true;
+    player.muted = true;
+    player.play();
+  }, [player]);
+
+  useEvent(player, 'statusChange', {
+    status: player.status,
+  });
 
   useEffect(() => {
     carregarStatus();
@@ -226,14 +241,14 @@ export default function InterpretacaoScreen() {
       const novasAreasUsadas = Array.isArray(data?.areasUsadasHoje)
         ? data.areasUsadasHoje
         : planoAtual === 'premium'
-        ? [...new Set([...areasUsadasHoje, areaSelecionada])]
-        : [areaSelecionada];
+          ? [...new Set([...areasUsadasHoje, areaSelecionada])]
+          : [areaSelecionada];
 
       const novasAreasDisponiveis = Array.isArray(data?.areasDisponiveisHoje)
         ? data.areasDisponiveisHoje
         : planoAtual === 'premium'
-        ? AREAS_DA_VIDA.filter(area => !novasAreasUsadas.includes(area))
-        : [];
+          ? AREAS_DA_VIDA.filter(area => !novasAreasUsadas.includes(area))
+          : [];
 
       setPlano(planoAtual);
       setInterpretacaoRealizadaHoje(true);
@@ -335,7 +350,7 @@ export default function InterpretacaoScreen() {
   }
 
   if (!fontsLoaded || carregandoStatus) {
-    return null;
+    return <LoadingScreen text="Abrindo interpretação..." />;
   }
 
   return (
@@ -343,33 +358,53 @@ export default function InterpretacaoScreen() {
       <Stack.Screen
         options={{
           headerShown: false,
-          animation: 'fade_from_bottom',
+          animation: 'fade',
           presentation: 'card',
         }}
       />
 
-      <ImageBackground
-        source={require('../assets/images/background.png')}
-        resizeMode="cover"
-        style={styles.background}
-      >
+      <View style={styles.container}>
+        <View style={styles.videoLayer} pointerEvents="none">
+          <VideoView
+            style={styles.video}
+            player={player}
+            contentFit="cover"
+            nativeControls={false}
+            surfaceType="textureView"
+            useExoShutter={false}
+          />
+        </View>
+
+        <View style={styles.videoVeil} />
+
+        <View style={styles.glowLayer} pointerEvents="none">
+          <Svg width="100%" height="100%" style={StyleSheet.absoluteFillObject}>
+            <Defs>
+              <RadialGradient id="bgGlow" cx="50%" cy="34%" r="75%">
+                <Stop offset="0%" stopColor="#13385b" stopOpacity="0.22" />
+                <Stop offset="40%" stopColor="#0b1f38" stopOpacity="0.18" />
+                <Stop offset="100%" stopColor="#040916" stopOpacity="0.92" />
+              </RadialGradient>
+            </Defs>
+            <Rect width="100%" height="100%" fill="url(#bgGlow)" />
+          </Svg>
+        </View>
+
         <ScrollView
-          contentContainerStyle={styles.container}
+          contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
             <TouchableOpacity
               onPress={() => router.back()}
               style={styles.botaoVoltar}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
               <Ionicons name="arrow-back" size={22} color="#E8C27A" />
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.titulo}>Interpretação</Text>
-
-          <View style={styles.cardFrase}>
+          <View style={styles.card}>
             <Text style={styles.rotulo}>Sua mensagem</Text>
             <Text style={styles.frase}>{frase}</Text>
           </View>
@@ -387,7 +422,7 @@ export default function InterpretacaoScreen() {
             )}
           </View>
 
-          <Text style={styles.subtitulo}>Escolha uma área da vida</Text>
+          <Text style={styles.subtitulo}>Escolha uma área</Text>
 
           <View style={styles.areasContainer}>
             {AREAS_DA_VIDA.map(area => {
@@ -443,7 +478,7 @@ export default function InterpretacaoScreen() {
             activeOpacity={0.85}
           >
             <Text style={styles.textoBotaoPrincipal}>
-              {carregando ? 'Interpretando...' : 'Gerar interpretação'}
+              {carregando ? 'Interpretando...' : 'Revelar interpretação'}
             </Text>
           </TouchableOpacity>
 
@@ -484,27 +519,47 @@ export default function InterpretacaoScreen() {
             </>
           )}
         </ScrollView>
-      </ImageBackground>
+      </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-  },
   container: {
-    minHeight: '100%',
+    flex: 1,
+    backgroundColor: '#000',
+  },
+
+  videoLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  video: {
+    width: '100%',
+    height: '100%',
+  },
+
+  videoVeil: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.50)',
+  },
+
+  glowLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  content: {
     paddingHorizontal: 24,
     paddingTop: 64,
     paddingBottom: 40,
-    backgroundColor: '#1a1230dd',
   },
+
   header: {
     width: '100%',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 12,
   },
+
   botaoVoltar: {
     width: 42,
     height: 42,
@@ -515,48 +570,47 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(232,194,122,0.25)',
   },
-  titulo: {
-    fontSize: 34,
-    color: '#E8C27A',
-    marginBottom: 18,
-    textAlign: 'center',
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-  },
-  cardFrase: {
+
+  card: {
     width: '100%',
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(232,194,122,0.22)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(232,194,122,0.18)',
+    backgroundColor: 'rgba(7,17,34,0.64)',
     paddingVertical: 18,
     paddingHorizontal: 18,
-    marginBottom: 18,
+    marginBottom: 16,
   },
-  rotulo: {
-    color: '#C9A96B',
-    fontSize: 14,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-  },
-  frase: {
-    color: '#F6E7C1',
-    fontSize: 22,
-    lineHeight: 30,
-    textAlign: 'center',
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-  },
+
   cardStatus: {
     width: '100%',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(184,146,255,0.22)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(184,146,255,0.20)',
+    backgroundColor: 'rgba(7,17,34,0.64)',
     paddingVertical: 14,
     paddingHorizontal: 16,
     marginBottom: 18,
   },
+
+  rotulo: {
+    color: '#C9A96B',
+    fontSize: 13,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    textAlign: 'center',
+  },
+
+  frase: {
+    color: '#F6E7C1',
+    fontSize: 22,
+    lineHeight: 32,
+    textAlign: 'center',
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+
   statusTitulo: {
     color: '#F1C97A',
     fontSize: 18,
@@ -564,6 +618,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
+
   statusTexto: {
     color: '#E8D8FF',
     fontSize: 14,
@@ -571,6 +626,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
+
   statusTextoMenor: {
     color: '#BFA7E8',
     fontSize: 13,
@@ -579,6 +635,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
+
   subtitulo: {
     color: '#E8C27A',
     fontSize: 22,
@@ -586,6 +643,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
+
   areasContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -593,6 +651,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 24,
   },
+
   botaoArea: {
     minWidth: 132,
     paddingVertical: 12,
@@ -605,65 +664,78 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
   },
+
   botaoAreaSelecionada: {
-    backgroundColor: '#3C235A',
+    backgroundColor: '#132B49',
     borderColor: '#E8C27A',
   },
+
   botaoAreaBloqueada: {
-    opacity: 0.48,
+    opacity: 0.45,
     borderColor: '#6A5A84',
     backgroundColor: 'rgba(255,255,255,0.025)',
   },
+
   textoArea: {
     color: '#E8D8FF',
     fontSize: 16,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
+
   textoAreaSelecionada: {
     color: '#F6E7C1',
   },
+
   textoAreaBloqueada: {
     color: '#B6A6C9',
   },
+
   iconeBloqueio: {
     marginLeft: 6,
   },
+
   botaoPrincipal: {
     width: '100%',
-    backgroundColor: '#3C235A',
+    backgroundColor: '#132B49',
     borderWidth: 1.5,
     borderColor: '#D5A85E',
     paddingVertical: 16,
     borderRadius: 999,
     alignItems: 'center',
   },
+
   botaoDesativado: {
     opacity: 0.5,
   },
+
   textoBotaoPrincipal: {
-    color: '#F1C97A',
-    fontSize: 20,
+    color: '#F4D7A2',
+    fontSize: 18,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
+
   loader: {
     marginTop: 20,
   },
+
   cardInterpretacao: {
     width: '100%',
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(232,194,122,0.22)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(232,194,122,0.18)',
+    backgroundColor: 'rgba(7,17,34,0.64)',
     paddingVertical: 18,
     paddingHorizontal: 18,
     marginTop: 24,
   },
+
   textoInterpretacao: {
     color: '#F2E8FF',
     fontSize: 17,
     lineHeight: 28,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
+
   botaoSalvar: {
     width: '100%',
     backgroundColor: 'rgba(255,255,255,0.05)',
@@ -676,9 +748,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 14,
   },
+
   iconeBotaoSalvar: {
     marginRight: 8,
   },
+
   textoBotaoSalvar: {
     color: '#E8D8FF',
     fontSize: 18,
