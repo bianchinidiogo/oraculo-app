@@ -1,6 +1,6 @@
 import { useFonts, PlayfairDisplay_600SemiBold } from '@expo-google-fonts/playfair-display';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,15 +9,17 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Animated,
+  Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { LoadingScreen } from '../components/loading-screen';
-import { useEvent } from 'expo';
-import { useVideoPlayer, VideoView } from 'expo-video';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
+import OracleSymbol from '../components/OracleSymbol';
 
 const API_URL = 'https://oraculo-vercel.vercel.app/api';
+const HOME_SYMBOL_SIZE = 260;
 
 const AREAS_DA_VIDA = [
   'Amor',
@@ -49,27 +51,90 @@ export default function InterpretacaoScreen() {
   const [salvandoLeitura, setSalvandoLeitura] = useState(false);
 
   const [plano, setPlano] = useState<Plano>('free');
-  const [interpretacaoRealizadaHoje, setInterpretacaoRealizadaHoje] = useState(false);
+  const [interpretacaoRealizadaHoje, setInterpretacaoRealizadaHoje] =
+    useState(false);
   const [areasUsadasHoje, setAreasUsadasHoje] = useState<string[]>([]);
-  const [areasDisponiveisHoje, setAreasDisponiveisHoje] = useState<string[]>([
+  const [_areasDisponiveisHoje, setAreasDisponiveisHoje] = useState<string[]>([
     ...AREAS_DA_VIDA,
   ]);
 
-  const player = useVideoPlayer(require('../assets/videos/oraculo-bg.mp4'));
+  const screenOpacity = useRef(new Animated.Value(0)).current;
+  const screenTranslateY = useRef(new Animated.Value(16)).current;
+  const idleBreath = useRef(new Animated.Value(0)).current;
+  const ritualPulse = useRef(new Animated.Value(0)).current;
+
+  const scrollRef = useRef<ScrollView | null>(null);
+  const interpretacaoY = useRef(0);
 
   useEffect(() => {
-    player.loop = true;
-    player.muted = true;
-    player.play();
-  }, [player]);
+    Animated.parallel([
+      Animated.timing(screenOpacity, {
+        toValue: 1,
+        duration: 420,
+        useNativeDriver: true,
+      }),
+      Animated.timing(screenTranslateY, {
+        toValue: 0,
+        duration: 420,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [screenOpacity, screenTranslateY]);
 
-  useEvent(player, 'statusChange', {
-    status: player.status,
-  });
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(idleBreath, {
+          toValue: 1,
+          duration: 4200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(idleBreath, {
+          toValue: 0,
+          duration: 4200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [idleBreath]);
+
+  useEffect(() => {
+    ritualPulse.setValue(0);
+
+    Animated.sequence([
+      Animated.timing(ritualPulse, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(ritualPulse, {
+        toValue: 0,
+        duration: 1100,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [ritualPulse]);
 
   useEffect(() => {
     carregarStatus();
   }, []);
+
+  useEffect(() => {
+    if (!interpretacao) return;
+
+    const timeout = setTimeout(() => {
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, interpretacaoY.current - 24),
+        animated: true,
+      });
+    }, 120);
+
+    return () => clearTimeout(timeout);
+  }, [interpretacao]);
 
   async function carregarStatus() {
     try {
@@ -137,20 +202,6 @@ export default function InterpretacaoScreen() {
     if (carregandoStatus) return false;
     if (areaEstaBloqueada(areaSelecionada)) return false;
     return true;
-  }
-
-  function obterTextoStatus() {
-    if (plano === 'premium') {
-      if (areasDisponiveisHoje.length === 0) {
-        return 'Você já interpretou todas as áreas disponíveis hoje.';
-      }
-
-      return `Áreas disponíveis hoje: ${areasDisponiveisHoje.length}/${AREAS_DA_VIDA.length}`;
-    }
-
-    return interpretacaoRealizadaHoje
-      ? 'No plano gratuito, você já usou sua interpretação de hoje.'
-      : 'No plano gratuito, você tem 1 interpretação disponível hoje.';
   }
 
   async function gerarInterpretacao() {
@@ -349,6 +400,39 @@ export default function InterpretacaoScreen() {
     }
   }
 
+  const symbolScale = Animated.add(
+    idleBreath.interpolate({
+      inputRange: [0, 0.5, 1],
+      outputRange: [0.995, 1.01, 0.995],
+    }),
+    ritualPulse.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 0.08],
+    })
+  );
+
+  const symbolGlowScale = Animated.add(
+    idleBreath.interpolate({
+      inputRange: [0, 0.5, 1],
+      outputRange: [0.98, 1.02, 0.98],
+    }),
+    ritualPulse.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 0.18],
+    })
+  );
+
+  const symbolGlowOpacity = Animated.add(
+    idleBreath.interpolate({
+      inputRange: [0, 0.5, 1],
+      outputRange: [0.18, 0.24, 0.18],
+    }),
+    ritualPulse.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 0.22],
+    })
+  );
+
   if (!fontsLoaded || carregandoStatus) {
     return <LoadingScreen text="Abrindo interpretação..." />;
   }
@@ -363,26 +447,23 @@ export default function InterpretacaoScreen() {
         }}
       />
 
-      <View style={styles.container}>
-        <View style={styles.videoLayer} pointerEvents="none">
-          <VideoView
-            style={styles.video}
-            player={player}
-            contentFit="cover"
-            nativeControls={false}
-            surfaceType="textureView"
-            useExoShutter={false}
-          />
-        </View>
-
+      <Animated.View
+        style={[
+          styles.container,
+          {
+            opacity: screenOpacity,
+            transform: [{ translateY: screenTranslateY }],
+          },
+        ]}
+      >
         <View style={styles.videoVeil} />
 
         <View style={styles.glowLayer} pointerEvents="none">
           <Svg width="100%" height="100%" style={StyleSheet.absoluteFillObject}>
             <Defs>
-              <RadialGradient id="bgGlow" cx="50%" cy="34%" r="75%">
-                <Stop offset="0%" stopColor="#13385b" stopOpacity="0.22" />
-                <Stop offset="40%" stopColor="#0b1f38" stopOpacity="0.18" />
+              <RadialGradient id="bgGlow" cx="50%" cy="30%" r="80%">
+                <Stop offset="0%" stopColor="#15385A" stopOpacity="0.20" />
+                <Stop offset="40%" stopColor="#0C1E36" stopOpacity="0.16" />
                 <Stop offset="100%" stopColor="#040916" stopOpacity="0.92" />
               </RadialGradient>
             </Defs>
@@ -391,6 +472,7 @@ export default function InterpretacaoScreen() {
         </View>
 
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
@@ -400,29 +482,50 @@ export default function InterpretacaoScreen() {
               style={styles.botaoVoltar}
               activeOpacity={0.85}
             >
-              <Ionicons name="arrow-back" size={22} color="#E8C27A" />
+              <Ionicons name="chevron-back" size={16} color="#F4D7A2" />
             </TouchableOpacity>
+
+            <View style={styles.headerCenter}>
+              <Text style={styles.titulo}>Interpretação</Text>
+            </View>
+
+            <View style={styles.headerSpacer} />
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.rotulo}>Sua mensagem</Text>
+          <View style={styles.topSymbolWrap} pointerEvents="none">
+            <Animated.View
+              style={[
+                styles.symbolGlow,
+                {
+                  opacity: symbolGlowOpacity,
+                  transform: [{ scale: symbolGlowScale }],
+                },
+              ]}
+            />
+
+            <Animated.View
+              style={{
+                transform: [{ scale: symbolScale }],
+              }}
+            >
+              <OracleSymbol
+                size={HOME_SYMBOL_SIZE}
+                raysProps={{ rotation: 0, opacity: 0.34 }}
+                circlesProps={{ rotation: 0, scale: 1, opacity: 0.88 }}
+                innerGlowProps={{ scale: 1, opacity: 1 }}
+                starProps={{ rotation: 0, scale: 1, opacity: 0.92 }}
+              />
+            </Animated.View>
+          </View>
+
+          <View style={styles.cardMensagem}>
+            <View style={styles.cardGlow} pointerEvents="none" />
             <Text style={styles.frase}>{frase}</Text>
           </View>
 
-          <View style={styles.cardStatus}>
-            <Text style={styles.statusTitulo}>
-              {plano === 'premium' ? 'Plano Premium' : 'Plano Gratuito'}
-            </Text>
-            <Text style={styles.statusTexto}>{obterTextoStatus()}</Text>
-
-            {plano === 'premium' && areasUsadasHoje.length > 0 && (
-              <Text style={styles.statusTextoMenor}>
-                Já usadas hoje: {areasUsadasHoje.join(', ')}
-              </Text>
-            )}
+          <View style={styles.areaHeader}>
+            <Text style={styles.subtitulo}>Escolha uma área da vida</Text>
           </View>
-
-          <Text style={styles.subtitulo}>Escolha uma área</Text>
 
           <View style={styles.areasContainer}>
             {AREAS_DA_VIDA.map(area => {
@@ -451,6 +554,7 @@ export default function InterpretacaoScreen() {
                       selecionada && styles.textoAreaSelecionada,
                       bloqueada && styles.textoAreaBloqueada,
                     ]}
+                    numberOfLines={1}
                   >
                     {area}
                   </Text>
@@ -458,8 +562,8 @@ export default function InterpretacaoScreen() {
                   {bloqueada && (
                     <Ionicons
                       name="lock-closed"
-                      size={14}
-                      color="#9F8BB9"
+                      size={11}
+                      color="#c1ebf6"
                       style={styles.iconeBloqueio}
                     />
                   )}
@@ -475,8 +579,14 @@ export default function InterpretacaoScreen() {
             ]}
             onPress={gerarInterpretacao}
             disabled={!podeGerarInterpretacao()}
-            activeOpacity={0.85}
+            activeOpacity={0.88}
           >
+            <Ionicons
+              name={carregando ? 'hourglass-outline' : 'sparkles-outline'}
+              size={16}
+              color="#221104"
+              style={styles.iconeBotaoPrincipal}
+            />
             <Text style={styles.textoBotaoPrincipal}>
               {carregando ? 'Interpretando...' : 'Revelar interpretação'}
             </Text>
@@ -485,15 +595,33 @@ export default function InterpretacaoScreen() {
           {carregando && (
             <ActivityIndicator
               size="large"
-              color="#E8C27A"
+              color="#F4D7A2"
               style={styles.loader}
             />
           )}
 
           {!!interpretacao && (
             <>
-              <View style={styles.cardInterpretacao}>
-                <Text style={styles.rotulo}>Leitura simbólica</Text>
+              <View
+                style={styles.cardInterpretacao}
+                onLayout={event => {
+                  interpretacaoY.current = event.nativeEvent.layout.y;
+                }}
+              >
+                <View style={styles.cardGlowSecondary} pointerEvents="none" />
+                {!!areaSelecionada && (
+                  <View style={styles.metaRow}>
+                    <View style={styles.metaChip}>
+                      <Ionicons
+                        name="sparkles-outline"
+                        size={12}
+                        color="#F4D7A2"
+                      />
+                      <Text style={styles.metaChipTexto}>{areaSelecionada}</Text>
+                    </View>
+                  </View>
+                )}
+
                 <Text style={styles.textoInterpretacao}>{interpretacao}</Text>
               </View>
 
@@ -503,13 +631,13 @@ export default function InterpretacaoScreen() {
                   salvandoLeitura && styles.botaoDesativado,
                 ]}
                 onPress={salvarLeitura}
-                activeOpacity={0.85}
+                activeOpacity={0.88}
                 disabled={salvandoLeitura}
               >
                 <Ionicons
                   name="bookmark-outline"
-                  size={18}
-                  color="#E8D8FF"
+                  size={16}
+                  color="#F4D7A2"
                   style={styles.iconeBotaoSalvar}
                 />
                 <Text style={styles.textoBotaoSalvar}>
@@ -519,7 +647,7 @@ export default function InterpretacaoScreen() {
             </>
           )}
         </ScrollView>
-      </View>
+      </Animated.View>
     </>
   );
 }
@@ -527,21 +655,12 @@ export default function InterpretacaoScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
-  },
-
-  videoLayer: {
-    ...StyleSheet.absoluteFillObject,
-  },
-
-  video: {
-    width: '100%',
-    height: '100%',
+    backgroundColor: 'transparent',
   },
 
   videoVeil: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.50)',
+    backgroundColor: 'rgba(6, 13, 22, 0)',
   },
 
   glowLayer: {
@@ -555,9 +674,9 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    width: '100%',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
   },
 
   botaoVoltar: {
@@ -566,80 +685,106 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(244, 215, 162, 0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(232,194,122,0.25)',
+    borderColor: 'rgba(244, 215, 162, 0.26)',
   },
 
-  card: {
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+
+  headerSpacer: {
+    width: 42,
+    height: 42,
+  },
+
+  titulo: {
+    color: '#F6E7C1',
+    fontSize: 16,
+    textAlign: 'center',
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    textShadowColor: 'rgba(0,0,0,0.38)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 8,
+  },
+
+  topSymbolWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -6,
+    marginBottom: 0,
+    minHeight: 260,
+  },
+
+  symbolGlow: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 999,
+    backgroundColor: 'rgba(244, 215, 162, 0.12)',
+    shadowColor: '#F4D7A2',
+    shadowOpacity: 0.30,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 0 },
+  },
+
+  cardMensagem: {
     width: '100%',
-    borderRadius: 24,
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(232,194,122,0.18)',
+    borderColor: 'rgba(244, 215, 162, 0.18)',
     backgroundColor: 'rgba(7,17,34,0.64)',
     paddingVertical: 18,
     paddingHorizontal: 18,
-    marginBottom: 16,
-  },
-
-  cardStatus: {
-    width: '100%',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(184,146,255,0.20)',
-    backgroundColor: 'rgba(7,17,34,0.64)',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
     marginBottom: 18,
+    overflow: 'hidden',
   },
 
-  rotulo: {
-    color: '#C9A96B',
-    fontSize: 13,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-    textAlign: 'center',
+  cardGlow: {
+    position: 'absolute',
+    top: -40,
+    right: -20,
+    width: 140,
+    height: 140,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0, 76, 255, 0)',
+  },
+
+  cardGlowSecondary: {
+    position: 'absolute',
+    top: -48,
+    right: -30,
+    width: 160,
+    height: 160,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 178, 35, 0.05)',
   },
 
   frase: {
     color: '#F6E7C1',
-    fontSize: 22,
-    lineHeight: 32,
+    fontSize: 24,
+    lineHeight: 34,
     textAlign: 'center',
     fontFamily: 'PlayfairDisplay_600SemiBold',
+    textShadowColor: 'rgba(0,0,0,0.30)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
 
-  statusTitulo: {
-    color: '#F1C97A',
-    fontSize: 18,
-    marginBottom: 6,
-    textAlign: 'center',
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-  },
-
-  statusTexto: {
-    color: '#E8D8FF',
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-  },
-
-  statusTextoMenor: {
-    color: '#BFA7E8',
-    fontSize: 13,
-    lineHeight: 18,
-    textAlign: 'center',
-    marginTop: 8,
-    fontFamily: 'PlayfairDisplay_600SemiBold',
+  areaHeader: {
+    alignItems: 'center',
+    marginBottom: 12,
   },
 
   subtitulo: {
-    color: '#E8C27A',
-    fontSize: 22,
-    marginBottom: 14,
+    color: '#c1ebf6',
+    fontSize: 15,
+    letterSpacing: 1,
+    textTransform: 'lowercase',
     textAlign: 'center',
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
@@ -648,37 +793,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 10,
-    marginBottom: 24,
+    gap: 8,
+    marginBottom: 22,
   },
 
   botaoArea: {
-    minWidth: 132,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    minWidth: 96,
+    maxWidth: 132,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
     borderRadius: 999,
-    borderWidth: 1.2,
-    borderColor: '#7B5BBE',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 235, 146, 0.16)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
   },
 
   botaoAreaSelecionada: {
-    backgroundColor: '#132B49',
-    borderColor: '#E8C27A',
+    backgroundColor: 'rgba(244, 215, 162, 0.12)',
+    borderColor: '#F4D7A2',
   },
 
   botaoAreaBloqueada: {
-    opacity: 0.45,
-    borderColor: '#6A5A84',
-    backgroundColor: 'rgba(255,255,255,0.025)',
+    opacity: 0.42,
+    borderColor: 'rgba(193, 235, 246, 0.20)',
+    backgroundColor: 'rgba(255,255,255,0.018)',
   },
 
   textoArea: {
-    color: '#E8D8FF',
-    fontSize: 16,
+    color: '#e0f9ff',
+    fontSize: 13,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
 
@@ -687,30 +833,42 @@ const styles = StyleSheet.create({
   },
 
   textoAreaBloqueada: {
-    color: '#B6A6C9',
+    color: '#c1ebf6',
   },
 
   iconeBloqueio: {
-    marginLeft: 6,
+    marginLeft: 5,
   },
 
   botaoPrincipal: {
     width: '100%',
-    backgroundColor: '#132B49',
-    borderWidth: 1.5,
-    borderColor: '#D5A85E',
-    paddingVertical: 16,
+    minHeight: 50,
+    backgroundColor: '#F4D7A2',
+    borderWidth: 1.2,
+    borderColor: '#F4D7A2',
+    paddingVertical: 15,
+    paddingHorizontal: 16,
     borderRadius: 999,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    shadowColor: '#F4D7A2',
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
   },
 
   botaoDesativado: {
     opacity: 0.5,
   },
 
+  iconeBotaoPrincipal: {
+    marginRight: 8,
+  },
+
   textoBotaoPrincipal: {
-    color: '#F4D7A2',
-    fontSize: 18,
+    color: '#221104',
+    fontSize: 16,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
 
@@ -720,28 +878,54 @@ const styles = StyleSheet.create({
 
   cardInterpretacao: {
     width: '100%',
-    borderRadius: 24,
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(232,194,122,0.18)',
+    borderColor: 'rgba(255, 235, 146, 0.18)',
     backgroundColor: 'rgba(7,17,34,0.64)',
     paddingVertical: 18,
     paddingHorizontal: 18,
     marginTop: 24,
+    overflow: 'hidden',
+  },
+
+  metaRow: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+
+  metaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(19, 43, 73, 0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(244, 215, 162, 0.18)',
+  },
+
+  metaChipTexto: {
+    color: '#F4D7A2',
+    fontSize: 13,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
   },
 
   textoInterpretacao: {
-    color: '#F2E8FF',
-    fontSize: 17,
-    lineHeight: 28,
+    color: '#e0f9ff',
+    fontSize: 16,
+    lineHeight: 26,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
 
   botaoSalvar: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    minHeight: 48,
+    backgroundColor: 'rgba(255, 157, 9, 0.04)',
     borderWidth: 1.2,
-    borderColor: '#7FA6FF',
-    paddingVertical: 15,
+    borderColor: 'rgba(255, 197, 122, 0.44)',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
@@ -754,8 +938,8 @@ const styles = StyleSheet.create({
   },
 
   textoBotaoSalvar: {
-    color: '#E8D8FF',
-    fontSize: 18,
+    color: '#F4D7A2',
+    fontSize: 16,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
 });
