@@ -12,7 +12,14 @@ import { supabase } from '../lib/supabase';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
-import OracleSymbol from '../components/OracleSymbol';
+import Svg, {
+  Circle,
+  Defs,
+  Line,
+  Path,
+  RadialGradient,
+  Stop,
+} from 'react-native-svg';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -188,13 +195,100 @@ export default function LoginScreen() {
     <View style={styles.container}>
       <View style={styles.content}>
         <View style={styles.symbolWrap} pointerEvents="none">
-          <OracleSymbol
-            size={140}
-            raysProps={{ rotation: 0, opacity: 0.3 }}
-            circlesProps={{ rotation: 0, scale: 1, opacity: 0.85 }}
-            innerGlowProps={{ scale: 1, opacity: 1 }}
-            starProps={{ rotation: 0, scale: 1, opacity: 0.9 }}
-          />
+          <Svg width={140} height={140}>
+            <Defs>
+              <RadialGradient id="symbolCore" cx="50%" cy="50%" r="60%">
+                <Stop offset="0%" stopColor="#805c19" stopOpacity="1" />
+                <Stop offset="28%" stopColor="#f5dbab" stopOpacity="0.96" />
+                <Stop offset="58%" stopColor="#eebe66" stopOpacity="0.32" />
+                <Stop offset="100%" stopColor="#ffdfa4" stopOpacity="0" />
+              </RadialGradient>
+            </Defs>
+
+            <Circle
+              cx={70}
+              cy={70}
+              r={54}
+              fill="none"
+              stroke="#ffcd93"
+              strokeOpacity={0.18}
+              strokeWidth={1}
+            />
+            <Circle
+              cx={70}
+              cy={70}
+              r={45}
+              fill="none"
+              stroke="#ffcd93"
+              strokeOpacity={0.1}
+              strokeWidth={1}
+            />
+
+            <Circle cx={70} cy={70} r={24} fill="url(#symbolCore)" />
+
+            <Circle
+              cx={70}
+              cy={70}
+              r={34}
+              fill="none"
+              stroke="#fcdfab"
+              strokeWidth={5}
+              opacity={0.08}
+            />
+
+            <Circle
+              cx={70}
+              cy={70}
+              r={32}
+              fill="none"
+              stroke="#ffed9f"
+              strokeWidth={1.4}
+            />
+
+            <Line
+              x1={70}
+              y1={38}
+              x2={70}
+              y2={102}
+              stroke="#ffeece"
+              strokeWidth={1.3}
+            />
+
+            <Line
+              x1={38}
+              y1={70}
+              x2={102}
+              y2={70}
+              stroke="#ffeece"
+              strokeWidth={1.3}
+            />
+
+            <Path
+              d="
+                M 70 38
+                Q 92 70
+                  70 102
+                Q 48 70
+                  70 38
+              "
+              fill="none"
+              stroke="#ffeece"
+              strokeWidth={1.1}
+            />
+
+            <Path
+              d="
+                M 38 70
+                Q 70 48
+                  102 70
+                Q 70 92
+                  38 70
+              "
+              fill="none"
+              stroke="#ffeece"
+              strokeWidth={1.1}
+            />
+          </Svg>
         </View>
 
         <View style={styles.card}>

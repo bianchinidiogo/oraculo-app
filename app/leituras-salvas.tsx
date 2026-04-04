@@ -172,11 +172,10 @@ export default function LeiturasSalvasScreen() {
       }
 
       if (response.status === 403) {
-        Alert.alert(
-          'Recurso premium',
-          data?.error || 'Leituras salvas são um recurso do plano premium.'
-        );
-        router.back();
+        router.replace({
+          pathname: '/premium',
+          params: { origem: 'salvos' },
+        });
         return;
       }
 

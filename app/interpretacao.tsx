@@ -219,10 +219,10 @@ export default function InterpretacaoScreen() {
     }
 
     if (plano === 'free' && interpretacaoRealizadaHoje) {
-      Alert.alert(
-        'Limite diário',
-        'No plano gratuito, você já realizou sua interpretação de hoje.'
-      );
+      router.push({
+        pathname: '/premium',
+        params: { origem: 'interpretacao' },
+      });
       return;
     }
 
@@ -269,15 +269,15 @@ export default function InterpretacaoScreen() {
           return;
         }
 
-        if (response.status === 429) {
-          Alert.alert(
-            'Limite diário',
-            data?.error || 'Você já realizou essa interpretação hoje.'
-          );
+      if (response.status === 429) {
+        await carregarStatus();
 
-          await carregarStatus();
-          return;
-        }
+        router.push({
+          pathname: '/premium',
+          params: { origem: 'interpretacao' },
+        });
+        return;
+      }
 
         throw new Error(data?.error || 'Erro ao interpretar');
       }
@@ -371,10 +371,10 @@ export default function InterpretacaoScreen() {
       }
 
       if (response.status === 403) {
-        Alert.alert(
-          'Recurso premium',
-          data?.error || 'Salvar leituras é um recurso do plano premium.'
-        );
+        router.push({
+          pathname: '/premium',
+          params: { origem: 'salvos' },
+        });
         return;
       }
 

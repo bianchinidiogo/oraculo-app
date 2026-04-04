@@ -455,17 +455,11 @@ export default function HomeScreen() {
     }
 
     if (leiturasRestantes <= 0) {
-      if (plano === 'free') {
-        router.push({
-          pathname: '/premium',
-          params: { origem: 'limite' },
-        });
-        return;
-      }
-
       Alert.alert(
         'Limite diário',
-        'Você já realizou suas 3 leituras de hoje.'
+        plano === 'premium'
+          ? 'Você já realizou suas 3 leituras de hoje.'
+          : 'Você já realizou sua leitura de hoje.'
       );
       return;
     }
@@ -808,17 +802,7 @@ export default function HomeScreen() {
 
           {renderIndicadoresLeitura()}
 
-          <TouchableOpacity
-            onPress={() => router.push('/minha-assinatura')}
-            activeOpacity={0.85}
-            style={styles.botaoAssinatura}
-            disabled={inputLocked}
-          >
-            <Ionicons name={plano === 'premium' ? 'sparkles' : 'diamond-outline'}
-              size={16}
-              color="#F4D7A2"
-            />
-          </TouchableOpacity>
+          <View style={styles.topSpacer} />
         </View>
 
         <View style={styles.miolo}>
@@ -1047,7 +1031,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(244, 215, 162, 0.28)',
   },
-
+  topSpacer: {
+    width: 28,
+    height: 28,
+  },
   indicadoresWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1198,23 +1185,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
-
-  botaoAssinatura: {
-  width: 28,
-  height: 28,
-  borderRadius: 999,
-  alignItems: 'center',
-  justifyContent: 'center',
-  backgroundColor: 'rgba(244, 215, 162, 0.10)',
-  borderWidth: 1,
-  borderColor: 'rgba(244, 215, 162, 0.28)',
-
-  // glow leve (premium feel)
-  shadowColor: '#F4D7A2',
-  shadowOpacity: 0.25,
-  shadowRadius: 6,
-  shadowOffset: { width: 0, height: 0 },
-  elevation: 4,
-},
-
 });

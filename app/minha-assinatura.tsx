@@ -1,6 +1,6 @@
 import { useFonts, PlayfairDisplay_600SemiBold } from '@expo-google-fonts/playfair-display';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef } from 'react';
+import { Stack, router } from 'expo-router';
+import { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,30 +13,10 @@ import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import { LoadingScreen } from '../components/loading-screen';
 
-const BENEFICIOS = [
-  {
-    icon: 'sparkles-outline',
-    title: 'Mais leituras por dia',
-    text: 'Siga sua jornada sem esperar.',
-  },
-  {
-    icon: 'planet-outline',
-    title: 'Mais áreas',
-    text: 'Explore mais aspectos da vida.',
-  },
-  {
-    icon: 'bookmark-outline',
-    title: 'Salve mensagens',
-    text: 'Revisite leituras importantes.',
-  },
-] as const;
-
-export default function PremiumScreen() {
+export default function MinhaAssinaturaScreen() {
   const [fontsLoaded] = useFonts({
     PlayfairDisplay_600SemiBold,
   });
-
-  const { origem } = useLocalSearchParams<{ origem?: string }>();
 
   const screenOpacity = useRef(new Animated.Value(0)).current;
   const screenTranslateY = useRef(new Animated.Value(14)).current;
@@ -54,62 +34,10 @@ export default function PremiumScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, [screenOpacity, screenTranslateY]);
-
-  const conteudo = useMemo(() => {
-    switch (origem) {
-      case 'salvos':
-        return {
-          titulo: 'Guarde suas mensagens',
-          descricao:
-            'Salve leituras importantes e revisite cada insight quando quiser.',
-          precoLabel: 'Desbloqueie os salvos',
-          precoObs: 'Cancele quando quiser',
-          cta: 'Salvar com Premium',
-          secundario: 'Continuar gratuito',
-        };
-
-      case 'interpretacao':
-        return {
-          titulo: 'Aprofunde sua interpretação',
-          descricao:
-            'Revele mais sentidos da sua leitura e explore outras áreas da sua vida.',
-          precoLabel: 'Continue interpretando',
-          precoObs: 'Cancele quando quiser',
-          cta: 'Desbloquear interpretação',
-          secundario: 'Continuar gratuito',
-        };
-
-      case 'limite':
-        return {
-          titulo: 'Continue sua jornada hoje',
-          descricao:
-            'No Premium, você faz mais leituras por dia sem precisar esperar até amanhã.',
-          precoLabel: 'Vá além do limite diário',
-          precoObs: 'Cancele quando quiser',
-          cta: 'Continuar com Premium',
-          secundario: 'Voltar por enquanto',
-        };
-
-      default:
-        return {
-          titulo: 'Desbloqueie o Oráculo completo',
-          descricao:
-            'Mais profundidade, mais liberdade e menos limitações na sua jornada.',
-          precoLabel: 'Plano Premium',
-          precoObs: 'Cancele quando quiser',
-          cta: 'Ativar Premium',
-          secundario: 'Continuar gratuito',
-        };
-    }
-  }, [origem]);
-
-  function handleComprar() {
-    console.log('Comprar premium');
-  }
+  }, []);
 
   if (!fontsLoaded) {
-    return <LoadingScreen text="Abrindo Premium..." />;
+    return <LoadingScreen text="Abrindo assinatura..." />;
   }
 
   return (
@@ -130,6 +58,7 @@ export default function PremiumScreen() {
           },
         ]}
       >
+        {/* BACKGROUND GLOW */}
         <View style={styles.glowLayer} pointerEvents="none">
           <Svg width="100%" height="100%" style={StyleSheet.absoluteFillObject}>
             <Defs>
@@ -145,6 +74,7 @@ export default function PremiumScreen() {
 
         <SafeAreaView style={styles.safe}>
           <View style={styles.content}>
+            {/* BOTÃO VOLTAR */}
             <TouchableOpacity
               onPress={() => router.back()}
               style={styles.botaoVoltar}
@@ -155,60 +85,114 @@ export default function PremiumScreen() {
 
             <View style={styles.centerWrap}>
               <View style={styles.cardsWrap}>
+                
+                {/* CARD STATUS */}
                 <View style={styles.card}>
-                  <Text style={styles.titulo}>{conteudo.titulo}</Text>
-                  <Text style={styles.descricao}>{conteudo.descricao}</Text>
+                  <Text style={styles.titulo}>Minha Assinatura</Text>
+                  <Text style={styles.descricao}>
+                    Seu plano Premium está ativo
+                  </Text>
 
-                  <View style={styles.precoWrap}>
-                    <Text style={styles.precoLabel}>{conteudo.precoLabel}</Text>
-                    <Text style={styles.preco}>R$ 9,90/mês</Text>
-                    <Text style={styles.precoObs}>{conteudo.precoObs}</Text>
+                  <View style={styles.statusWrap}>
+                    <View style={styles.statusChipPremium}>
+                      <Ionicons
+                        name="diamond-outline"
+                        size={12}
+                        color="#221104"
+                        style={styles.statusChipIcone}
+                      />
+                      <Text style={styles.statusChipTextoPremium}>
+                        Premium
+                      </Text>
+                    </View>
+
+                    <Text style={styles.statusValor}>
+                      Renovação ativa
+                    </Text>
                   </View>
+
+                  <Text style={styles.textoApoio}>
+                    Sua assinatura está ativa e sua próxima renovação está prevista
+                    para 10/05/2026.
+                  </Text>
                 </View>
 
+                {/* CARD DETALHES */}
                 <View style={styles.card}>
-                  {BENEFICIOS.map(item => (
-                    <View key={item.title} style={styles.beneficio}>
+                  <Text style={styles.blocoTitulo}>Seu plano atual</Text>
+
+                  <View style={styles.precoWrap}>
+                    <Text style={styles.preco}>R$ 9,90/mês</Text>
+                    <Text style={styles.precoObs}>
+                      Acesso Premium em andamento
+                    </Text>
+                  </View>
+
+                  <View style={styles.listaBeneficios}>
+                    <View style={styles.beneficio}>
                       <Ionicons
-                        name={item.icon as any}
+                        name="sparkles-outline"
                         size={13}
                         color="#F4D7A2"
                         style={styles.iconeBeneficio}
                       />
-
-                      <View style={styles.beneficioTextoWrap}>
-                        <Text style={styles.beneficioTitulo}>{item.title}</Text>
-                        <Text style={styles.beneficioTexto}>{item.text}</Text>
-                      </View>
+                      <Text style={styles.beneficioTexto}>
+                        Mais leituras por dia
+                      </Text>
                     </View>
-                  ))}
+
+                    <View style={styles.beneficio}>
+                      <Ionicons
+                        name="planet-outline"
+                        size={13}
+                        color="#F4D7A2"
+                        style={styles.iconeBeneficio}
+                      />
+                      <Text style={styles.beneficioTexto}>
+                        Mais áreas disponíveis
+                      </Text>
+                    </View>
+
+                    <View style={styles.beneficio}>
+                      <Ionicons
+                        name="bookmark-outline"
+                        size={13}
+                        color="#F4D7A2"
+                        style={styles.iconeBeneficio}
+                      />
+                      <Text style={styles.beneficioTexto}>
+                        Salve mensagens importantes
+                      </Text>
+                    </View>
+                  </View>
 
                   <View style={styles.botoesWrap}>
                     <TouchableOpacity
                       style={styles.botaoPrincipal}
-                      onPress={handleComprar}
                       activeOpacity={0.9}
                     >
                       <Ionicons
-                        name="diamond-outline"
+                        name="settings-outline"
                         size={16}
                         color="#221104"
                         style={styles.iconeBotao}
                       />
-                      <Text style={styles.textoBotao}>{conteudo.cta}</Text>
+                      <Text style={styles.textoBotao}>
+                        Gerenciar assinatura
+                      </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={styles.botaoSecundario}
-                      onPress={() => router.back()}
                       activeOpacity={0.85}
                     >
                       <Text style={styles.textoSecundario}>
-                        {conteudo.secundario}
+                        Restaurar compras
                       </Text>
                     </TouchableOpacity>
                   </View>
                 </View>
+
               </View>
             </View>
           </View>
@@ -261,7 +245,6 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    width: '100%',
     borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(244, 215, 162, 0.18)',
@@ -274,34 +257,75 @@ const styles = StyleSheet.create({
     color: '#F6E7C1',
     fontSize: 19,
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
 
   descricao: {
+    color: '#F6E7C1',
+    fontSize: 15,
+    textAlign: 'center',
+    marginBottom: 10,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+
+  statusWrap: {
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+
+  statusChipPremium: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: '#F4D7A2',
+    borderWidth: 1,
+    borderColor: '#F4D7A2',
+    marginBottom: 8,
+  },
+
+  statusChipIcone: {
+    marginRight: 6,
+  },
+
+  statusChipTextoPremium: {
+    color: '#221104',
+    fontSize: 12,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+
+  statusValor: {
     color: '#e0f9ff',
     fontSize: 13,
-    lineHeight: 20,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+
+  textoApoio: {
+    color: '#c1ebf6',
+    fontSize: 12.5,
+    lineHeight: 19,
     textAlign: 'center',
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
 
-  precoWrap: {
-    marginTop: 10,
-    alignItems: 'center',
+  blocoTitulo: {
+    color: '#F6E7C1',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 8,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
   },
 
-  precoLabel: {
-    color: '#F4D7A2',
-    fontSize: 12,
-    marginBottom: 2,
-    fontFamily: 'PlayfairDisplay_600SemiBold',
+  precoWrap: {
+    alignItems: 'center',
+    marginBottom: 12,
   },
 
   preco: {
     color: '#F6E7C1',
     fontSize: 24,
-    lineHeight: 28,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
 
@@ -312,36 +336,29 @@ const styles = StyleSheet.create({
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
 
+  listaBeneficios: {
+    marginBottom: 12,
+  },
+
   beneficio: {
     flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
   },
 
   iconeBeneficio: {
     marginRight: 8,
-    marginTop: 2,
-  },
-
-  beneficioTextoWrap: {
-    flex: 1,
-  },
-
-  beneficioTitulo: {
-    color: '#F6E7C1',
-    fontSize: 13,
-    marginBottom: 1,
-    fontFamily: 'PlayfairDisplay_600SemiBold',
   },
 
   beneficioTexto: {
+    flex: 1,
     color: '#e0f9ff',
-    fontSize: 11.5,
-    lineHeight: 16,
+    fontSize: 12,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
 
   botoesWrap: {
-    marginTop: 10,
+    marginTop: 4,
   },
 
   botaoPrincipal: {
@@ -367,7 +384,6 @@ const styles = StyleSheet.create({
   botaoSecundario: {
     marginTop: 8,
     alignItems: 'center',
-    justifyContent: 'center',
   },
 
   textoSecundario: {
