@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -12,15 +12,12 @@ import { supabase } from '../lib/supabase';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
-import { useEvent } from 'expo';
-import { useVideoPlayer, VideoView } from 'expo-video';
 import Svg, {
   Circle,
   Defs,
   Line,
   Path,
   RadialGradient,
-  Rect,
   Stop,
 } from 'react-native-svg';
 
@@ -30,18 +27,6 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const player = useVideoPlayer(require('../assets/videos/oraculo-bg.mp4'));
-
-  useEffect(() => {
-    player.loop = true;
-    player.muted = true;
-    player.play();
-  }, [player]);
-
-  useEvent(player, 'statusChange', {
-    status: player.status,
-  });
 
   async function createSessionFromUrl(url: string) {
     const { params, errorCode } = QueryParams.getQueryParams(url);
@@ -208,40 +193,6 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.videoLayer} pointerEvents="none">
-        <VideoView
-          style={styles.video}
-          player={player}
-          contentFit="cover"
-          nativeControls={false}
-          surfaceType="textureView"
-          useExoShutter={false}
-        />
-      </View>
-
-      <View style={styles.videoVeil} />
-
-      <View style={styles.glowLayer} pointerEvents="none">
-        <Svg width="100%" height="100%" style={StyleSheet.absoluteFillObject}>
-          <Defs>
-            <RadialGradient id="bgGlow" cx="50%" cy="34%" r="75%">
-              <Stop offset="0%" stopColor="#13385b" stopOpacity="0.22" />
-              <Stop offset="40%" stopColor="#0b1f38" stopOpacity="0.18" />
-              <Stop offset="100%" stopColor="#040916" stopOpacity="0.92" />
-            </RadialGradient>
-
-            <RadialGradient id="goldGlow" cx="50%" cy="50%" r="55%">
-              <Stop offset="0%" stopColor="#f5dbab" stopOpacity="0.22" />
-              <Stop offset="40%" stopColor="#eebe66" stopOpacity="0.10" />
-              <Stop offset="100%" stopColor="#ffdfa4" stopOpacity="0" />
-            </RadialGradient>
-          </Defs>
-
-          <Rect width="100%" height="100%" fill="url(#bgGlow)" />
-          <Circle cx="50%" cy="28%" r="120" fill="url(#goldGlow)" />
-        </Svg>
-      </View>
-
       <View style={styles.content}>
         <View style={styles.symbolWrap} pointerEvents="none">
           <Svg width={140} height={140}>
@@ -343,7 +294,6 @@ export default function LoginScreen() {
         <View style={styles.card}>
           <Text style={styles.eyebrow}>O ORÁCULO AGUARDA</Text>
 
-
           <TextInput
             placeholder="Email"
             placeholderTextColor="rgba(223,244,255,0.42)"
@@ -399,7 +349,6 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-
       </View>
     </View>
   );
@@ -408,26 +357,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
-  },
-
-  videoLayer: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000',
-  },
-
-  video: {
-    width: '100%',
-    height: '100%',
-  },
-
-  videoVeil: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.48)',
-  },
-
-  glowLayer: {
-    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
   },
 
   content: {
@@ -466,22 +396,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
     opacity: 0.82,
-  },
-
-  title: {
-    fontSize: 32,
-    color: '#F4D7A2',
-    textAlign: 'center',
-    fontWeight: '700',
-    marginBottom: 10,
-  },
-
-  subtitle: {
-    color: '#B7CAE3',
-    fontSize: 14,
-    lineHeight: 22,
-    textAlign: 'center',
-    marginBottom: 24,
   },
 
   input: {
@@ -546,15 +460,5 @@ const styles = StyleSheet.create({
 
   buttonDisabled: {
     opacity: 0.6,
-  },
-
-  footerHint: {
-    marginTop: 18,
-    textAlign: 'center',
-    color: '#DFF4FF',
-    fontSize: 12,
-    letterSpacing: 2.4,
-    textTransform: 'lowercase',
-    opacity: 0.65,
   },
 });

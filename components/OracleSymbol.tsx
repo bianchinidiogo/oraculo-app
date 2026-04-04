@@ -96,52 +96,52 @@ export default function OracleSymbol({
         </RadialGradient>
 
         <RadialGradient id="oracleAuraGradient" cx="50%" cy="50%" r="60%">
-          <Stop offset="0" stopColor="#ffffff" stopOpacity="0.16" />
-          <Stop offset="0.45" stopColor="#a9dfff" stopOpacity="0.1" />
+          <Stop offset="0" stopColor="#ffffff" stopOpacity="0.36" />
+          <Stop offset="0.45" stopColor="#a9dfff" stopOpacity="0.3" />
           <Stop offset="1" stopColor="#57bfff" stopOpacity="0" />
         </RadialGradient>
       </Defs>
 
       <Layer opacity={raysProps?.opacity} transform={buildTransform(raysProps)}>
-        <Line x1="170.3" y1="325.2" x2="170.3" y2="244.2" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="140" y1="322.2" x2="155.8" y2="242.8" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="111" y1="313.4" x2="142" y2="238.6" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="84.2" y1="299.1" x2="129.2" y2="231.7" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="60.7" y1="279.8" x2="117.9" y2="222.5" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="41.4" y1="256.3" x2="108.7" y2="211.3" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="27.1" y1="229.5" x2="101.9" y2="198.5" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="18.3" y1="200.4" x2="97.7" y2="184.6" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="15.3" y1="170.2" x2="96.3" y2="170.2" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="18.3" y1="139.9" x2="97.7" y2="155.7" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="27.1" y1="110.9" x2="101.9" y2="141.9" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="41.4" y1="84.1" x2="108.7" y2="129.1" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="60.7" y1="60.6" x2="117.9" y2="117.8" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="84.2" y1="41.3" x2="129.2" y2="108.6" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="111" y1="27" x2="142" y2="101.8" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="140" y1="18.2" x2="155.8" y2="97.6" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="170.3" y1="15.2" x2="170.3" y2="96.2" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="200.5" y1="18.2" x2="184.7" y2="97.6" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="229.6" y1="27" x2="198.6" y2="101.8" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="256.4" y1="41.3" x2="211.4" y2="108.6" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="279.9" y1="60.6" x2="222.6" y2="117.8" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="299.2" y1="84.1" x2="231.8" y2="129.1" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="313.5" y1="110.9" x2="238.7" y2="141.9" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="322.3" y1="139.9" x2="242.9" y2="155.7" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="325.3" y1="170.2" x2="244.3" y2="170.2" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="322.3" y1="200.4" x2="242.9" y2="184.6" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="313.5" y1="229.5" x2="238.7" y2="198.5" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="299.2" y1="256.3" x2="231.8" y2="211.3" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="279.9" y1="279.8" x2="222.6" y2="222.5" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="256.4" y1="299.1" x2="211.4" y2="231.7" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="229.6" y1="313.4" x2="198.6" y2="238.6" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
-        <Line x1="200.5" y1="322.2" x2="184.7" y2="242.8" stroke="#ffd8ef" strokeWidth="1" opacity="0.08" />
+        <Line x1="170.3" y1="325.2" x2="170.3" y2="244.2" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="140" y1="322.2" x2="155.8" y2="242.8" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="111" y1="313.4" x2="142" y2="238.6" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="84.2" y1="299.1" x2="129.2" y2="231.7" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="60.7" y1="279.8" x2="117.9" y2="222.5" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="41.4" y1="256.3" x2="108.7" y2="211.3" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="27.1" y1="229.5" x2="101.9" y2="198.5" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="18.3" y1="200.4" x2="97.7" y2="184.6" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="15.3" y1="170.2" x2="96.3" y2="170.2" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="18.3" y1="139.9" x2="97.7" y2="155.7" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="27.1" y1="110.9" x2="101.9" y2="141.9" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="41.4" y1="84.1" x2="108.7" y2="129.1" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="60.7" y1="60.6" x2="117.9" y2="117.8" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="84.2" y1="41.3" x2="129.2" y2="108.6" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="111" y1="27" x2="142" y2="101.8" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="140" y1="18.2" x2="155.8" y2="97.6" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="170.3" y1="15.2" x2="170.3" y2="96.2" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="200.5" y1="18.2" x2="184.7" y2="97.6" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="229.6" y1="27" x2="198.6" y2="101.8" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="256.4" y1="41.3" x2="211.4" y2="108.6" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="279.9" y1="60.6" x2="222.6" y2="117.8" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="299.2" y1="84.1" x2="231.8" y2="129.1" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="313.5" y1="110.9" x2="238.7" y2="141.9" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="322.3" y1="139.9" x2="242.9" y2="155.7" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="325.3" y1="170.2" x2="244.3" y2="170.2" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="322.3" y1="200.4" x2="242.9" y2="184.6" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="313.5" y1="229.5" x2="238.7" y2="198.5" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="299.2" y1="256.3" x2="231.8" y2="211.3" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="279.9" y1="279.8" x2="222.6" y2="222.5" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="256.4" y1="299.1" x2="211.4" y2="231.7" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="229.6" y1="313.4" x2="198.6" y2="238.6" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
+        <Line x1="200.5" y1="322.2" x2="184.7" y2="242.8" stroke="#ffe8d8" strokeWidth="1" opacity="0.3" />
       </Layer>
 
       <Layer opacity={circlesProps?.opacity} transform={buildTransform(circlesProps)}>
         <Circle cx="170.3" cy="170.2" r="130" fill="url(#oracleAuraGradient)" opacity="0.25" />
         <Circle cx="170.3" cy="170.2" r="74" fill="none" stroke="#ffcd93" strokeWidth="1.2" opacity="0.24" />
-        <Circle cx="170.3" cy="170.2" r="58" fill="none" stroke="#ffcd93" strokeWidth="1" opacity="0.18" />
-        <Circle cx="170.3" cy="170.2" r="48" fill="none" stroke="#ffcd93" strokeWidth="1" opacity="0.10" />
+        <Circle cx="170.3" cy="170.2" r="58" fill="none" stroke="#ffcd93" strokeWidth="1" opacity="0.38" />
+        <Circle cx="170.3" cy="170.2" r="48" fill="none" stroke="#ffcd93" strokeWidth="1" opacity="0.30" />
         <Circle cx="170.3" cy="170.2" r="66" fill="none" stroke="#ffcd93" strokeWidth="1" opacity="0.08" />
       </Layer>
 
@@ -150,7 +150,7 @@ export default function OracleSymbol({
       </Layer>
 
       <Layer opacity={starProps?.opacity} transform={buildTransform(starProps)}>
-        <Line x1="170.3" y1="136.2" x2="170.3" y2="204.2" stroke="#ffeece" strokeWidth="1.4" />
+        <Line x1="170.3" y1="136.2" x2="170.3" y2="204.2" stroke="#ffcece" strokeWidth="1.4" />
         <Line x1="136.3" y1="170.2" x2="204.3" y2="170.2" stroke="#ffeece" strokeWidth="1.4" />
         <Path
           d="M170.3,136.2c14.7,22.7,14.7,45.3,0,68-14.7-22.7-14.7-45.3,0-68"
