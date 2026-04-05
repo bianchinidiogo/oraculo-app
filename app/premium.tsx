@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: 34,
     paddingBottom: 14,
   },
 
