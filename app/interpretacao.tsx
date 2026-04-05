@@ -1,5 +1,7 @@
 import { useFonts, PlayfairDisplay_600SemiBold } from '@expo-google-fonts/playfair-display';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -47,12 +49,13 @@ export default function InterpretacaoScreen() {
   const [areaSelecionada, setAreaSelecionada] = useState('');
   const [carregando, setCarregando] = useState(false);
   const [carregandoStatus, setCarregandoStatus] = useState(true);
-  const [interpretacao, setInterpretacao] = useState('');
+  const [previewInterpretacao, setPreviewInterpretacao] = useState('');
+  const [interpretacaoCompleta, setInterpretacaoCompleta] = useState('');
+  const [interpretacaoBloqueada, setInterpretacaoBloqueada] = useState(false);
   const [salvandoLeitura, setSalvandoLeitura] = useState(false);
 
   const [plano, setPlano] = useState<Plano>('free');
-  const [interpretacaoRealizadaHoje, setInterpretacaoRealizadaHoje] =
-    useState(false);
+  const [interpretacaoRealizadaHoje, setInterpretacaoRealizadaHoje] = useState(false);
   const [areasUsadasHoje, setAreasUsadasHoje] = useState<string[]>([]);
   const [_areasDisponiveisHoje, setAreasDisponiveisHoje] = useState<string[]>([
     ...AREAS_DA_VIDA,
@@ -65,6 +68,40 @@ export default function InterpretacaoScreen() {
 
   const scrollRef = useRef<ScrollView | null>(null);
   const interpretacaoY = useRef(0);
+
+
+function limparInterpretacaoAtual() {
+  setPreviewInterpretacao('');
+  setInterpretacaoCompleta('');
+  setInterpretacaoBloqueada(false);
+}
+
+function obterTextoInterpretacaoRenderizado() {
+  return interpretacaoBloqueada
+    ? previewInterpretacao
+    : interpretacaoCompleta;
+}
+
+function temInterpretacaoVisivel() {
+  return !!previewInterpretacao || !!interpretacaoCompleta;
+}
+
+function podeSalvarLeituraAtual() {
+  return !!interpretacaoCompleta && !interpretacaoBloqueada;
+}
+
+function abrirPremiumInterpretacao() {
+  router.push({
+    pathname: '/premium',
+    params: { origem: 'interpretacao' },
+  });
+}
+
+useFocusEffect(
+  useCallback(() => {
+    carregarStatus();
+  }, [])
+);
 
   useEffect(() => {
     Animated.parallel([
@@ -123,18 +160,31 @@ export default function InterpretacaoScreen() {
     carregarStatus();
   }, []);
 
-  useEffect(() => {
-    if (!interpretacao) return;
+useEffect(() => {
+  if (!temInterpretacaoVisivel()) return;
 
-    const timeout = setTimeout(() => {
-      scrollRef.current?.scrollTo({
-        y: Math.max(0, interpretacaoY.current - 24),
-        animated: true,
-      });
-    }, 120);
+  const timeout = setTimeout(() => {
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, interpretacaoY.current - 24),
+      animated: true,
+    });
+  }, 120);
 
-    return () => clearTimeout(timeout);
-  }, [interpretacao]);
+  return () => clearTimeout(timeout);
+}, [previewInterpretacao, interpretacaoCompleta, interpretacaoBloqueada]);
+
+useEffect(() => {
+  if (
+    plano === 'premium' &&
+    interpretacaoBloqueada &&
+    !!previewInterpretacao &&
+    !!areaSelecionada &&
+    !!leituraId
+  ) {
+    buscarInterpretacaoCompletaLiberada();
+  }
+}, [plano, interpretacaoBloqueada, previewInterpretacao, areaSelecionada, leituraId]);
+
 
   async function carregarStatus() {
     try {
@@ -204,70 +254,74 @@ export default function InterpretacaoScreen() {
     return true;
   }
 
-  async function gerarInterpretacao() {
-    if (!frase) {
-      Alert.alert('Erro', 'Frase não encontrada.');
-      return;
-    }
+async function gerarInterpretacao() {
+  if (!frase) {
+    Alert.alert('Erro', 'Frase não encontrada.');
+    return;
+  }
 
-    if (!areaSelecionada) {
-      Alert.alert(
-        'Escolha uma área',
-        'Selecione uma área da vida para interpretar.'
-      );
-      return;
-    }
+  if (!areaSelecionada) {
+    Alert.alert(
+      'Escolha uma área',
+      'Selecione uma área da vida para interpretar.'
+    );
+    return;
+  }
 
-    if (plano === 'free' && interpretacaoRealizadaHoje) {
-      router.push({
-        pathname: '/premium',
-        params: { origem: 'interpretacao' },
-      });
-      return;
-    }
+  if (plano === 'free' && interpretacaoRealizadaHoje) {
+    router.push({
+      pathname: '/premium',
+      params: { origem: 'interpretacao' },
+    });
+    return;
+  }
 
-    if (plano === 'premium' && areasUsadasHoje.includes(areaSelecionada)) {
-      Alert.alert(
-        'Área já interpretada',
-        `Você já realizou a interpretação da área ${areaSelecionada} hoje.`
-      );
-      return;
-    }
+  if (plano === 'premium' && areasUsadasHoje.includes(areaSelecionada)) {
+    Alert.alert(
+      'Área já interpretada',
+      `Você já realizou a interpretação da área ${areaSelecionada} hoje.`
+    );
+    return;
+  }
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-    if (!session?.access_token) {
-      Alert.alert('Login necessário', 'Faça login novamente.');
-      router.replace('/login');
-      return;
-    }
+  if (!session?.access_token) {
+    Alert.alert('Login necessário', 'Faça login novamente.');
+    router.replace('/login');
+    return;
+  }
 
-    setCarregando(true);
+  setCarregando(true);
 
-    try {
-      const response = await fetch(`${API_URL}/interpretar`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          frase,
-          area: areaSelecionada,
-          cardId: cardId || null,
-        }),
-      });
+  try {
+    console.log('DEBUG leituraId:', leituraId);
 
-      const data = await response.json();
+    const response = await fetch(`${API_URL}/interpretar`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        
+        leituraId: leituraId ? Number(leituraId) : null,
+        frase,
+        area: areaSelecionada,
+        cardId: cardId || null,
+      }),
+    });
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          Alert.alert('Sessão inválida', 'Faça login novamente.');
-          router.replace('/login');
-          return;
-        }
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        Alert.alert('Sessão inválida', 'Faça login novamente.');
+        router.replace('/login');
+        return;
+      }
 
       if (response.status === 429) {
         await carregarStatus();
@@ -279,43 +333,101 @@ export default function InterpretacaoScreen() {
         return;
       }
 
-        throw new Error(data?.error || 'Erro ao interpretar');
-      }
-
-      if (!data?.interpretacao) {
-        throw new Error('A API respondeu sem interpretação.');
-      }
-
-      setInterpretacao(data.interpretacao);
-
-      const planoAtual: Plano = data?.plano === 'premium' ? 'premium' : 'free';
-      const novasAreasUsadas = Array.isArray(data?.areasUsadasHoje)
-        ? data.areasUsadasHoje
-        : planoAtual === 'premium'
-          ? [...new Set([...areasUsadasHoje, areaSelecionada])]
-          : [areaSelecionada];
-
-      const novasAreasDisponiveis = Array.isArray(data?.areasDisponiveisHoje)
-        ? data.areasDisponiveisHoje
-        : planoAtual === 'premium'
-          ? AREAS_DA_VIDA.filter(area => !novasAreasUsadas.includes(area))
-          : [];
-
-      setPlano(planoAtual);
-      setInterpretacaoRealizadaHoje(true);
-      setAreasUsadasHoje(novasAreasUsadas);
-      setAreasDisponiveisHoje(novasAreasDisponiveis);
-    } catch (error: any) {
-      console.log('Erro ao gerar interpretação:', error);
-
-      Alert.alert(
-        'Erro',
-        error?.message || 'Não foi possível gerar a interpretação.'
-      );
-    } finally {
-      setCarregando(false);
+      throw new Error(data?.error || 'Erro ao interpretar');
     }
+
+    const planoAtual: Plano = data?.plano === 'premium' ? 'premium' : 'free';
+    const preview =
+      typeof data?.preview === 'string' ? data.preview : '';
+    const interpretacao =
+      typeof data?.interpretacao === 'string' ? data.interpretacao : '';
+
+    if (planoAtual === 'free') {
+      if (!preview) {
+        throw new Error('A API respondeu sem preview da interpretação.');
+      }
+
+      setPreviewInterpretacao(preview);
+      setInterpretacaoCompleta('');
+      setInterpretacaoBloqueada(true);
+    } else {
+      if (!interpretacao) {
+        throw new Error('A API respondeu sem interpretação completa.');
+      }
+
+      setPreviewInterpretacao('');
+      setInterpretacaoCompleta(interpretacao);
+      setInterpretacaoBloqueada(false);
+    }
+
+    const novasAreasUsadas = Array.isArray(data?.areasUsadasHoje)
+      ? data.areasUsadasHoje
+      : planoAtual === 'premium'
+        ? [...new Set([...areasUsadasHoje, areaSelecionada])]
+        : [areaSelecionada];
+
+    const novasAreasDisponiveis = Array.isArray(data?.areasDisponiveisHoje)
+      ? data.areasDisponiveisHoje
+      : planoAtual === 'premium'
+        ? AREAS_DA_VIDA.filter(area => !novasAreasUsadas.includes(area))
+        : [];
+
+    setPlano(planoAtual);
+    setInterpretacaoRealizadaHoje(true);
+    setAreasUsadasHoje(novasAreasUsadas);
+    setAreasDisponiveisHoje(novasAreasDisponiveis);
+  } catch (error: any) {
+    console.log('Erro ao gerar interpretação:', error);
+
+    Alert.alert(
+      'Erro',
+      error?.message || 'Não foi possível gerar a interpretação.'
+    );
+  } finally {
+    setCarregando(false);
   }
+}
+
+    async function buscarInterpretacaoCompletaLiberada() {
+      if (!leituraId || !areaSelecionada) return;
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) return;
+
+      try {
+        const response = await fetch(`${API_URL}/interpretacao-completa`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            leituraId: Number(leituraId),
+            area: areaSelecionada,
+            cardId: cardId || null,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          return;
+        }
+
+        if (!data?.interpretacao) {
+          return;
+        }
+
+        setInterpretacaoCompleta(data.interpretacao);
+        setInterpretacaoBloqueada(false);
+      } catch (error) {
+        console.log('Erro ao buscar interpretação completa:', error);
+      }
+}
+
 
   async function salvarLeitura() {
     const {
@@ -336,11 +448,19 @@ export default function InterpretacaoScreen() {
       return;
     }
 
-    if (!interpretacao || !areaSelecionada) {
+    if (!areaSelecionada || !temInterpretacaoVisivel()) {
       Alert.alert(
         'Atenção',
         'Gere a interpretação antes de salvar esta leitura.'
       );
+      return;
+    }
+
+    if (!podeSalvarLeituraAtual()) {
+      router.push({
+        pathname: '/premium',
+        params: { origem: 'salvos' },
+      });
       return;
     }
 
@@ -357,7 +477,7 @@ export default function InterpretacaoScreen() {
           leituraId: Number(leituraId),
           frase,
           area: areaSelecionada,
-          interpretacao,
+          interpretacao: interpretacaoCompleta,
           cardId: cardId || null,
         }),
       });
@@ -540,9 +660,10 @@ export default function InterpretacaoScreen() {
                     selecionada && styles.botaoAreaSelecionada,
                     bloqueada && styles.botaoAreaBloqueada,
                   ]}
-                  onPress={() => {
+                 onPress={() => {
                     if (!bloqueada) {
                       setAreaSelecionada(area);
+                      limparInterpretacaoAtual();
                     }
                   }}
                   activeOpacity={bloqueada ? 1 : 0.85}
@@ -600,52 +721,85 @@ export default function InterpretacaoScreen() {
             />
           )}
 
-          {!!interpretacao && (
-            <>
-              <View
-                style={styles.cardInterpretacao}
-                onLayout={event => {
-                  interpretacaoY.current = event.nativeEvent.layout.y;
-                }}
-              >
-                <View style={styles.cardGlowSecondary} pointerEvents="none" />
-                {!!areaSelecionada && (
-                  <View style={styles.metaRow}>
-                    <View style={styles.metaChip}>
-                      <Ionicons
-                        name="sparkles-outline"
-                        size={12}
-                        color="#F4D7A2"
-                      />
-                      <Text style={styles.metaChipTexto}>{areaSelecionada}</Text>
-                    </View>
-                  </View>
-                )}
+{temInterpretacaoVisivel() && (
+  <>
+    <View
+      style={styles.cardInterpretacao}
+      onLayout={event => {
+        interpretacaoY.current = event.nativeEvent.layout.y;
+      }}
+    >
+      <View style={styles.cardGlowSecondary} pointerEvents="none" />
 
-                <Text style={styles.textoInterpretacao}>{interpretacao}</Text>
-              </View>
+      {!!areaSelecionada && (
+        <View style={styles.metaRow}>
+          <View style={styles.metaChip}>
+            <Ionicons
+              name="sparkles-outline"
+              size={12}
+              color="#F4D7A2"
+            />
+            <Text style={styles.metaChipTexto}>{areaSelecionada}</Text>
+          </View>
+        </View>
+      )}
 
-              <TouchableOpacity
-                style={[
-                  styles.botaoSalvar,
-                  salvandoLeitura && styles.botaoDesativado,
-                ]}
-                onPress={salvarLeitura}
-                activeOpacity={0.88}
-                disabled={salvandoLeitura}
-              >
-                <Ionicons
-                  name="bookmark-outline"
-                  size={16}
-                  color="#F4D7A2"
-                  style={styles.iconeBotaoSalvar}
-                />
-                <Text style={styles.textoBotaoSalvar}>
-                  {salvandoLeitura ? 'Salvando...' : 'Salvar leitura'}
+      <Text style={styles.textoInterpretacao}>
+        {obterTextoInterpretacaoRenderizado()}
+      </Text>
+
+            {interpretacaoBloqueada && (
+              <View style={styles.overlayBloqueioInterpretacao}>
+                <View style={styles.fadeBloqueio} />
+
+                <Text style={styles.tituloBloqueioInterpretacao}>
+                  Existe mais nessa mensagem
                 </Text>
-              </TouchableOpacity>
-            </>
-          )}
+
+                <Text style={styles.textoBloqueioInterpretacao}>
+                  Desbloqueie para continuar lendo.
+                </Text>
+
+                <TouchableOpacity
+                  style={styles.botaoDesbloquearInterpretacao}
+                  onPress={abrirPremiumInterpretacao}
+                  activeOpacity={0.9}
+                >
+                  <Ionicons
+                    name="diamond-outline"
+                    size={16}
+                    color="#221104"
+                    style={styles.iconeBotaoDesbloquear}
+                  />
+                  <Text style={styles.textoBotaoDesbloquear}>
+                    Desbloquear interpretação
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+        <TouchableOpacity
+          style={[
+            styles.botaoSalvar,
+            salvandoLeitura && styles.botaoDesativado,
+          ]}
+          onPress={salvarLeitura}
+          activeOpacity={0.88}
+          disabled={salvandoLeitura}
+        >
+          <Ionicons
+            name="bookmark-outline"
+            size={16}
+            color="#F4D7A2"
+            style={styles.iconeBotaoSalvar}
+          />
+          <Text style={styles.textoBotaoSalvar}>
+            {salvandoLeitura ? 'Salvando...' : 'Salvar leitura'}
+          </Text>
+        </TouchableOpacity>
+        </>
+      )}
         </ScrollView>
       </Animated.View>
     </>
@@ -884,6 +1038,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(7,17,34,0.64)',
     paddingVertical: 18,
     paddingHorizontal: 18,
+    paddingBottom: 20,
     marginTop: 24,
     overflow: 'hidden',
   },
@@ -942,4 +1097,60 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'PlayfairDisplay_600SemiBold',
   },
+
+  overlayBloqueioInterpretacao: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+    paddingTop: 42,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+
+  fadeBloqueio: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(7,17,34,0.88)',
+  },
+
+  tituloBloqueioInterpretacao: {
+    color: '#F6E7C1',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 6,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+
+  textoBloqueioInterpretacao: {
+    color: '#c1ebf6',
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 14,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+
+  botaoDesbloquearInterpretacao: {
+    minHeight: 46,
+    backgroundColor: '#F4D7A2',
+    borderRadius: 999,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  iconeBotaoDesbloquear: {
+    marginRight: 8,
+  },
+
+  textoBotaoDesbloquear: {
+    color: '#221104',
+    fontSize: 15,
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+  },
+
 });
